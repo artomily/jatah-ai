@@ -1,6 +1,6 @@
 # Jatah Ai
 
-**The payment layer for AI agents — adaptive billing powered by x402.**
+**The payment layer for AI agents — pay by time, pay by usage, settled instantly with x402.**
 
 > Stop subscribing. Start paying the way you actually use AI.
 > Humans pay by time. Machines pay by usage.

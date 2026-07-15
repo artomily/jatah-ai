@@ -5,6 +5,7 @@ import { useAppStore, useHydrated } from "@/lib/store/app-store";
 import { useNow } from "@/hooks/use-now";
 import { bucketSpendByDay } from "@/lib/store/selectors";
 import { BalanceCard } from "@/components/wallet/balance-card";
+import { StellarWalletCard } from "@/components/wallet/stellar-wallet-card";
 import { PassesSection } from "@/components/wallet/passes-section";
 import { TransactionRow } from "@/components/wallet/transaction-row";
 import { SpendAreaChart } from "@/components/charts/spend-area-chart";
@@ -17,8 +18,9 @@ export function WalletView() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
         <BalanceCard />
+        <StellarWalletCard />
         <div className="flex flex-col gap-2 rounded-xl border bg-card p-5 shadow-card lg:col-span-2">
           <p className="text-sm font-medium text-muted-foreground">Spend, last 7 days</p>
           {!hydrated || now == null ? (

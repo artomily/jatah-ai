@@ -115,6 +115,7 @@ interface AppState {
   createApiKey: (modelId: string | null, label: string) => ApiKey;
   revokeApiKey: (id: string) => void;
   topUp: (amount: number) => void;
+  topUpWithStellar: (amountUsd: number, amountXlm: number, txHash: string) => void;
   setTopUpOpen: (open: boolean) => void;
   setBudget: (window: BudgetWindow, cap: number | null) => void;
   setCreatorPricing: (agentId: string, model: BillingModel, enabled: boolean) => void;
@@ -492,6 +493,22 @@ export const useAppStore = create<AppState>()(
           transactions: [txn, ...s.transactions],
         }));
         toast.success(`Added ${formatMoneyExact(amount)} to your wallet`);
+      },
+
+      topUpWithStellar: (amountUsd, amountXlm, txHash) => {
+        const txn: Transaction = {
+          id: makeId("txn"),
+          type: "top_up",
+          createdAt: Date.now(),
+          amount: round4(amountUsd),
+          stellarTxHash: txHash,
+          stellarAmountXlm: amountXlm,
+        };
+        set((s) => ({
+          balance: round4(s.balance + amountUsd),
+          transactions: [txn, ...s.transactions],
+        }));
+        toast.success(`Added ${formatMoneyExact(amountUsd)} via ${amountXlm} XLM (testnet)`);
       },
 
       setTopUpOpen: (open) => set({ topUpOpen: open }),

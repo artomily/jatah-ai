@@ -151,6 +151,9 @@ export interface Transaction {
   coveredByPassId?: string;
   coveredByPassType?: PassType;
   passType?: PassType;
+  /** top_up only — set when the funds came from a Stellar testnet payment. */
+  stellarTxHash?: string;
+  stellarAmountXlm?: number;
 }
 
 export type BudgetWindow = "daily" | "weekly" | "monthly";

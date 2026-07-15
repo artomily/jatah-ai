@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowDownLeft, Bot, Cpu, ReceiptText, Ticket } from "lucide-react";
+import { ArrowDownLeft, Bot, Cpu, ExternalLink, ReceiptText, Ticket } from "lucide-react";
 import { PASS_LABELS, formatCredit, formatMoney, formatTime } from "@/lib/format";
+import { stellarExplorerTxUrl } from "@/lib/stellar/config";
 import type { Transaction } from "@/lib/types";
 import { ReceiptCard } from "@/components/billing/receipt-card";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -16,7 +17,7 @@ function Icon({ txn }: { txn: Transaction }) {
 }
 
 function title(txn: Transaction): string {
-  if (txn.type === "top_up") return "Wallet top-up";
+  if (txn.type === "top_up") return txn.stellarTxHash ? "Wallet top-up · Stellar" : "Wallet top-up";
   if (txn.type === "pass_purchase") {
     const name = txn.agentName ?? txn.modelName ?? "";
     return `${txn.passType ? PASS_LABELS[txn.passType] : "Pass"} · ${name}`;
@@ -47,6 +48,17 @@ export function TransactionRow({ txn }: { txn: Transaction }) {
         <p className="truncate text-sm font-medium">{title(txn)}</p>
         {txn.taskPrompt && (
           <p className="truncate text-xs text-muted-foreground">{txn.taskPrompt}</p>
+        )}
+        {txn.stellarTxHash && (
+          <a
+            href={stellarExplorerTxUrl(txn.stellarTxHash)}
+            target="_blank"
+            rel="noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="inline-flex items-center gap-0.5 text-xs text-muted-foreground hover:underline"
+          >
+            {txn.stellarAmountXlm} XLM <ExternalLink className="size-2.5" aria-hidden />
+          </a>
         )}
       </div>
       <span className="shrink-0 text-xs text-muted-foreground tabular-nums">

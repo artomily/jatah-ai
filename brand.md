@@ -2,7 +2,7 @@
 
 _Status: active_
 
-**Jatah Ai** is the payment layer for AI agents — adaptive billing powered by x402.
+**Jatah Ai** is the payment layer for AI agents — pay by time, pay by usage, settled instantly with x402.
 Tagline: **"Stop Subscribing. Start Paying the Way You Actually Use AI."**
 Manifesto line (appears on every major surface): **"Humans pay by time. Machines pay by usage."**
 
