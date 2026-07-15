@@ -36,7 +36,7 @@ export function SubscriptionTiers() {
       <div className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-8 sm:py-28">
         <div className="mb-14 max-w-xl">
           <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-            Bundles, if you'd rather not think about it
+            A tier, a token allowance, no per-call tracking
           </h2>
           <p className="mt-2 text-muted-foreground">
             Basic, Standard, or Premium — pick a model tier and a token allowance,
@@ -102,7 +102,7 @@ export function SubscriptionTiers() {
 
         <p className="mt-6 text-xs text-muted-foreground">
           Go over your token allowance and the run just falls back to usage billing at
-          the model's normal rate — never blocked, never a surprise.
+          the model&apos;s normal rate — never blocked, never a surprise.
         </p>
       </div>
     </section>

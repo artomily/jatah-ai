@@ -25,7 +25,7 @@ export function PassTiers() {
       <div className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-8 sm:py-28">
         <div className="mb-14 max-w-xl">
           <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-            Or skip usage billing entirely
+            Or pay for a window, not a task
           </h2>
           <p className="mt-2 text-muted-foreground">
             Time passes work like a day pass at a gym — access for a window, set per agent

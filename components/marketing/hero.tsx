@@ -36,13 +36,11 @@ export function Hero() {
             Powered by x402
           </span>
           <h1 className="text-4xl leading-[1.08] font-semibold tracking-tight sm:text-5xl lg:text-6xl">
-            Stop subscribing.
-            <br />
-            Start paying the way you actually use AI.
+            You don&apos;t know what your AI subscription actually costs you.
           </h1>
           <p className="max-w-lg text-lg text-muted-foreground">
-            Pay per request with a hard cap, or unlock a time pass — 24 hours, 7 days, 30
-            days. Every cost shown before it happens, every receipt itemized after.
+            We do — down to the cent, before it happens and after. Pay per request with a
+            hard cap, or unlock a time pass when a burst of work makes more sense.
           </p>
           <div className="flex flex-wrap items-center gap-3">
             <Button size="lg" asChild>
