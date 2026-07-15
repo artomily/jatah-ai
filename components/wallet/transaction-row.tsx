@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowDownLeft, Bot, ReceiptText, Ticket } from "lucide-react";
+import { ArrowDownLeft, Bot, Cpu, ReceiptText, Ticket } from "lucide-react";
 import { PASS_LABELS, formatCredit, formatMoney, formatTime } from "@/lib/format";
 import type { Transaction } from "@/lib/types";
 import { ReceiptCard } from "@/components/billing/receipt-card";
@@ -11,19 +11,24 @@ import { cn } from "@/lib/utils";
 function Icon({ txn }: { txn: Transaction }) {
   if (txn.type === "top_up") return <ArrowDownLeft className="size-4" aria-hidden />;
   if (txn.type === "pass_purchase") return <Ticket className="size-4" aria-hidden />;
+  if (txn.type === "model_usage") return <Cpu className="size-4" aria-hidden />;
   return <Bot className="size-4" aria-hidden />;
 }
 
 function title(txn: Transaction): string {
   if (txn.type === "top_up") return "Wallet top-up";
-  if (txn.type === "pass_purchase")
-    return `${txn.passType ? PASS_LABELS[txn.passType] : "Pass"} · ${txn.agentName ?? ""}`;
+  if (txn.type === "pass_purchase") {
+    const name = txn.agentName ?? txn.modelName ?? "";
+    return `${txn.passType ? PASS_LABELS[txn.passType] : "Pass"} · ${name}`;
+  }
+  if (txn.type === "model_usage") return txn.modelName ?? "Model call";
   return txn.agentName ?? "Agent run";
 }
 
 export function TransactionRow({ txn }: { txn: Transaction }) {
   const [open, setOpen] = useState(false);
-  const canOpenReceipt = txn.type === "usage" && txn.breakdown;
+  const canOpenReceipt =
+    (txn.type === "usage" || txn.type === "model_usage") && Boolean(txn.breakdown);
 
   const row = (
     <div className="flex items-center gap-3 px-1 py-2.5">

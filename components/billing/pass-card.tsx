@@ -2,12 +2,16 @@ import Link from "next/link";
 import { Ticket } from "lucide-react";
 import { PASS_LABELS, formatMoneyExact } from "@/lib/format";
 import { getAgentById } from "@/lib/data/agents";
+import { getModelById } from "@/lib/data/models";
 import type { OwnedPass } from "@/lib/types";
 import { PassCountdown } from "@/components/billing/pass-countdown";
 import { cn } from "@/lib/utils";
 
 export function PassCard({ pass, expired = false }: { pass: OwnedPass; expired?: boolean }) {
-  const agent = getAgentById(pass.agentId);
+  const agent = pass.agentId ? getAgentById(pass.agentId) : undefined;
+  const model = pass.modelId ? getModelById(pass.modelId) : undefined;
+  const href = agent ? `/agents/${agent.slug}` : model ? `/models/${model.slug}` : null;
+  const name = agent?.name ?? model?.name;
 
   return (
     <div
@@ -27,12 +31,12 @@ export function PassCard({ pass, expired = false }: { pass: OwnedPass; expired?:
       </span>
       <div className="min-w-0 flex-1">
         <p className="truncate font-medium">
-          {agent ? (
-            <Link href={`/agents/${agent.slug}`} className="hover:underline">
-              {agent.name}
+          {href && name ? (
+            <Link href={href} className="hover:underline">
+              {name}
             </Link>
           ) : (
-            "Unknown agent"
+            "Unknown"
           )}
         </p>
         <p className="text-xs text-muted-foreground">

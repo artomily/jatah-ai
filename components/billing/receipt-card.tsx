@@ -38,7 +38,7 @@ export function ReceiptCard({
       </div>
 
       <div className="px-4 py-3">
-        <p className="font-medium">{txn.agentName}</p>
+        <p className="font-medium">{txn.agentName ?? txn.modelName}</p>
         {txn.taskPrompt && (
           <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
             &ldquo;{txn.taskPrompt}&rdquo;

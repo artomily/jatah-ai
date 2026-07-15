@@ -5,6 +5,8 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import { toast } from "sonner";
 import {
   buildBreakdown,
+  buildTokenBreakdown,
+  generateApiKeySecret,
   makeId,
   rollActualCost,
   rollExecutionMs,
@@ -19,8 +21,10 @@ import {
   round4,
 } from "@/lib/format";
 import { getAgentById } from "@/lib/data/agents";
+import { getModelById } from "@/lib/data/models";
 import { buildSeedState } from "@/lib/data/seed";
 import type {
+  ApiKey,
   BillingModel,
   BudgetWindow,
   Budgets,
@@ -29,7 +33,12 @@ import type {
   PerRequestPricing,
   Transaction,
 } from "@/lib/types";
-import { getActivePass, getEffectivePricing, spentSince } from "@/lib/store/selectors";
+import {
+  getActiveModelPass,
+  getActivePass,
+  getEffectivePricing,
+  spentSince,
+} from "@/lib/store/selectors";
 
 export type RunPhase =
   | "estimating"
@@ -56,6 +65,18 @@ export interface RunState {
   receipt?: Transaction;
 }
 
+export interface ModelRunState {
+  phase: RunPhase;
+  runToken: number;
+  modelId: string;
+  taskPrompt: string;
+  estimate: PerRequestPricing;
+  executionMs: number;
+  coveredByPass?: OwnedPass;
+  budgetWarning?: BudgetWarning;
+  receipt?: Transaction;
+}
+
 export type CreatorPricingOverrides = Record<
   string,
   Partial<Record<BillingModel, boolean>>
@@ -67,8 +88,10 @@ interface AppState {
   passes: OwnedPass[];
   budgets: Budgets;
   creatorPricing: CreatorPricingOverrides;
+  apiKeys: ApiKey[];
   /** Transient — never persisted. */
   run: RunState | null;
+  modelRun: ModelRunState | null;
   topUpOpen: boolean;
   _hasHydrated: boolean;
   _seeded: boolean;
@@ -82,6 +105,15 @@ interface AppState {
     agentId: string,
     type: PassType,
   ) => { ok: boolean; reason?: "insufficient" | "unavailable" };
+  startModelCall: (modelId: string, taskPrompt: string) => void;
+  approveModelCall: (opts?: { overrideBudget?: boolean }) => void;
+  cancelModelCall: () => void;
+  purchaseModelPass: (
+    modelId: string,
+    type: PassType,
+  ) => { ok: boolean; reason?: "insufficient" | "unavailable" };
+  createApiKey: (modelId: string | null, label: string) => ApiKey;
+  revokeApiKey: (id: string) => void;
   topUp: (amount: number) => void;
   setTopUpOpen: (open: boolean) => void;
   setBudget: (window: BudgetWindow, cap: number | null) => void;
@@ -90,6 +122,7 @@ interface AppState {
 }
 
 let runTimer: ReturnType<typeof setTimeout> | null = null;
+let modelRunTimer: ReturnType<typeof setTimeout> | null = null;
 let runTokenCounter = 0;
 
 function clearRunTimer() {
@@ -97,6 +130,32 @@ function clearRunTimer() {
     clearTimeout(runTimer);
     runTimer = null;
   }
+}
+
+function clearModelRunTimer() {
+  if (modelRunTimer) {
+    clearTimeout(modelRunTimer);
+    modelRunTimer = null;
+  }
+}
+
+/** Shared by agent and model approval flows. */
+function findBudgetWarning(
+  budgets: Budgets,
+  transactions: Transaction[],
+  cap: number,
+  now: number,
+): BudgetWarning | undefined {
+  let tightest: BudgetWarning | undefined;
+  for (const window of ["daily", "weekly", "monthly"] as BudgetWindow[]) {
+    const windowCap = budgets[window];
+    if (windowCap == null) continue;
+    const remaining = round4(windowCap - spentSince(transactions, budgetWindowStart(window, now)));
+    if (cap > remaining && (!tightest || remaining < tightest.remaining)) {
+      tightest = { window, cap: windowCap, remaining };
+    }
+  }
+  return tightest;
 }
 
 export const useAppStore = create<AppState>()(
@@ -107,7 +166,9 @@ export const useAppStore = create<AppState>()(
       passes: [],
       budgets: { daily: null, weekly: null, monthly: null },
       creatorPricing: {},
+      apiKeys: [],
       run: null,
+      modelRun: null,
       topUpOpen: false,
       _hasHydrated: false,
       _seeded: false,
@@ -155,18 +216,7 @@ export const useAppStore = create<AppState>()(
           if (balance < run.estimate.cap) return; // UI disables; guard anyway
 
           if (!opts?.overrideBudget) {
-            const now = Date.now();
-            let tightest: BudgetWarning | undefined;
-            for (const window of ["daily", "weekly", "monthly"] as BudgetWindow[]) {
-              const cap = budgets[window];
-              if (cap == null) continue;
-              const remaining = round4(cap - spentSince(transactions, budgetWindowStart(window, now)));
-              if (run.estimate.cap > remaining) {
-                if (!tightest || remaining < tightest.remaining) {
-                  tightest = { window, cap, remaining };
-                }
-              }
-            }
+            const tightest = findBudgetWarning(budgets, transactions, run.estimate.cap, Date.now());
             if (tightest) {
               set({ run: { ...run, phase: "confirm_budget", budgetWarning: tightest } });
               return;
@@ -263,6 +313,172 @@ export const useAppStore = create<AppState>()(
         return { ok: true as const };
       },
 
+      startModelCall: (modelId, taskPrompt) => {
+        const model = getModelById(modelId);
+        if (!model) return;
+
+        clearModelRunTimer();
+        const token = ++runTokenCounter;
+        set({
+          modelRun: {
+            phase: "estimating",
+            runToken: token,
+            modelId,
+            taskPrompt,
+            estimate: model.pricing.perRequest,
+            executionMs: rollExecutionMs(1800),
+            coveredByPass: getActiveModelPass(get().passes, modelId, Date.now()),
+          },
+        });
+        modelRunTimer = setTimeout(() => {
+          const { modelRun } = get();
+          if (modelRun?.runToken === token && modelRun.phase === "estimating") {
+            set({ modelRun: { ...modelRun, phase: "review" } });
+          }
+        }, 550 + Math.random() * 500);
+      },
+
+      approveModelCall: (opts) => {
+        const { modelRun, budgets, transactions, balance } = get();
+        if (
+          !modelRun ||
+          (modelRun.phase !== "review" && modelRun.phase !== "confirm_budget")
+        )
+          return;
+
+        if (!modelRun.coveredByPass) {
+          if (balance < modelRun.estimate.cap) return;
+
+          if (!opts?.overrideBudget) {
+            const tightest = findBudgetWarning(
+              budgets,
+              transactions,
+              modelRun.estimate.cap,
+              Date.now(),
+            );
+            if (tightest) {
+              set({ modelRun: { ...modelRun, phase: "confirm_budget", budgetWarning: tightest } });
+              return;
+            }
+          }
+        }
+
+        const token = modelRun.runToken;
+        set({ modelRun: { ...modelRun, phase: "running", budgetWarning: undefined } });
+        clearModelRunTimer();
+        modelRunTimer = setTimeout(() => {
+          const state = get();
+          const current = state.modelRun;
+          if (!current || current.runToken !== token || current.phase !== "running") return;
+
+          const model = getModelById(current.modelId);
+          if (!model) return;
+
+          const rolled = rollActualCost(current.estimate);
+          const covered = Boolean(current.coveredByPass);
+          const amount = covered ? 0 : rolled.amount;
+          const { breakdown, inputTokens, outputTokens } = buildTokenBreakdown(
+            model.pricing.rateCard,
+            rolled.amount,
+          );
+          const receipt: Transaction = {
+            id: makeId("txn"),
+            type: "model_usage",
+            createdAt: Date.now(),
+            amount,
+            modelId: model.id,
+            modelName: model.name,
+            taskPrompt: current.taskPrompt,
+            breakdown,
+            inputTokens,
+            outputTokens,
+            executionMs: current.executionMs,
+            estimate: current.estimate,
+            cappedOverrun: !covered && rolled.cappedOverrun,
+            ...(current.coveredByPass
+              ? {
+                  coveredByPassId: current.coveredByPass.id,
+                  coveredByPassType: current.coveredByPass.type,
+                }
+              : {}),
+          };
+
+          set({
+            balance: round4(state.balance - amount),
+            transactions: [receipt, ...state.transactions],
+            modelRun: { ...current, phase: "receipt", receipt },
+          });
+          toast.success(
+            covered
+              ? `Call covered by your ${PASS_LABELS[current.coveredByPass!.type]}`
+              : `Charged ${formatMoney(amount)} — receipt ready`,
+          );
+        }, modelRun.executionMs);
+      },
+
+      cancelModelCall: () => {
+        clearModelRunTimer();
+        set({ modelRun: null });
+      },
+
+      purchaseModelPass: (modelId, type) => {
+        const model = getModelById(modelId);
+        const pricing = model?.pricing.passes[type];
+        if (!model || !pricing) return { ok: false as const, reason: "unavailable" as const };
+        if (get().balance < pricing.price) {
+          return { ok: false as const, reason: "insufficient" as const };
+        }
+
+        const now = Date.now();
+        const pass: OwnedPass = {
+          id: makeId("pass"),
+          modelId,
+          type,
+          price: pricing.price,
+          activatedAt: now,
+          expiresAt: now + PASS_DURATIONS_MS[type],
+        };
+        const txn: Transaction = {
+          id: makeId("txn"),
+          type: "pass_purchase",
+          createdAt: now,
+          amount: pricing.price,
+          modelId,
+          modelName: model.name,
+          passType: type,
+        };
+        set((s) => ({
+          balance: round4(s.balance - pricing.price),
+          passes: [pass, ...s.passes],
+          transactions: [txn, ...s.transactions],
+        }));
+        toast.success(`${PASS_LABELS[type]} active for ${model.name}`);
+        return { ok: true as const };
+      },
+
+      createApiKey: (modelId, label) => {
+        const secret = generateApiKeySecret();
+        const key: ApiKey = {
+          id: makeId("key"),
+          label: label.trim() || "Untitled key",
+          modelId,
+          secret,
+          last4: secret.slice(-4),
+          createdAt: Date.now(),
+          lastUsedAt: null,
+          revokedAt: null,
+        };
+        set((s) => ({ apiKeys: [key, ...s.apiKeys] }));
+        return key;
+      },
+
+      revokeApiKey: (id) => {
+        set((s) => ({
+          apiKeys: s.apiKeys.map((k) => (k.id === id ? { ...k, revokedAt: Date.now() } : k)),
+        }));
+        toast.success("API key revoked");
+      },
+
       topUp: (amount) => {
         if (!Number.isFinite(amount) || amount <= 0) return;
         const txn: Transaction = {
@@ -300,10 +516,12 @@ export const useAppStore = create<AppState>()(
 
       resetDemo: () => {
         clearRunTimer();
+        clearModelRunTimer();
         set({
           ...buildSeedState(Date.now()),
           creatorPricing: {},
           run: null,
+          modelRun: null,
           topUpOpen: false,
           _seeded: true,
         });
@@ -320,6 +538,7 @@ export const useAppStore = create<AppState>()(
         passes: s.passes,
         budgets: s.budgets,
         creatorPricing: s.creatorPricing,
+        apiKeys: s.apiKeys,
         _seeded: s._seeded,
       }),
       skipHydration: true,

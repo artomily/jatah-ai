@@ -20,6 +20,8 @@ import { openCommandPalette } from "@/components/command-palette";
 const TITLES: Array<[string, string]> = [
   ["/marketplace", "Marketplace"],
   ["/agents", "Agent details"],
+  ["/models", "Models"],
+  ["/api-keys", "API Keys"],
   ["/dashboard", "Dashboard"],
   ["/wallet", "Wallet"],
   ["/transactions", "Transactions"],

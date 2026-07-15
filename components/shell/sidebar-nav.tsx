@@ -5,7 +5,9 @@ import { usePathname } from "next/navigation";
 import {
   Blocks,
   ChartNoAxesColumn,
+  Cpu,
   Gauge,
+  KeyRound,
   LayoutDashboard,
   ReceiptText,
   Store,
@@ -18,12 +20,16 @@ interface NavItem {
   href: string;
   label: string;
   icon: LucideIcon;
+  matchPrefix?: string;
 }
 
 const SECTIONS: Array<{ label: string; items: NavItem[] }> = [
   {
     label: "Browse",
-    items: [{ href: "/marketplace", label: "Marketplace", icon: Store }],
+    items: [
+      { href: "/marketplace", label: "Marketplace", icon: Store, matchPrefix: "/agents" },
+      { href: "/models", label: "Models", icon: Cpu },
+    ],
   },
   {
     label: "Your account",
@@ -33,6 +39,7 @@ const SECTIONS: Array<{ label: string; items: NavItem[] }> = [
       { href: "/transactions", label: "Transactions", icon: ReceiptText },
       { href: "/analytics", label: "Analytics", icon: ChartNoAxesColumn },
       { href: "/budgets", label: "Budgets", icon: Gauge },
+      { href: "/api-keys", label: "API Keys", icon: KeyRound },
     ],
   },
   {
@@ -55,7 +62,7 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
             {section.items.map((item) => {
               const active =
                 pathname === item.href ||
-                (item.href === "/marketplace" && pathname.startsWith("/agents"));
+                (item.matchPrefix != null && pathname.startsWith(item.matchPrefix));
               return (
                 <li key={item.href}>
                   <Link

@@ -1,12 +1,17 @@
 import {
   buildBreakdown,
+  buildTokenBreakdown,
+  generateApiKeySecret,
   makeId,
   mulberry32,
+  rollActualCost,
   rollExecutionMs,
 } from "@/lib/billing";
 import { PASS_DURATIONS_MS, round4 } from "@/lib/format";
 import { getAgentById } from "@/lib/data/agents";
+import { getModelById } from "@/lib/data/models";
 import type {
+  ApiKey,
   Budgets,
   OwnedPass,
   PassType,
@@ -18,6 +23,7 @@ export interface SeedState {
   transactions: Transaction[];
   passes: OwnedPass[];
   budgets: Budgets;
+  apiKeys: ApiKey[];
 }
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -76,6 +82,32 @@ const SAMPLE_PROMPTS: Record<string, string[]> = {
   agent_regexsmith: [
     "Pattern to extract invoice IDs like INV-2024-00931",
   ],
+};
+
+/** Models the demo user calls directly via API key, weighted. */
+const MODEL_USAGE_POOL: Array<{ modelId: string; weight: number }> = [
+  { modelId: "model_claude-sonnet-5", weight: 5 },
+  { modelId: "model_gpt-5-mini", weight: 4 },
+  { modelId: "model_gpt-5", weight: 2 },
+  { modelId: "model_gemini-2-5-pro", weight: 2 },
+  { modelId: "model_claude-haiku-4-5", weight: 3 },
+  { modelId: "model_mistral-large-3", weight: 1 },
+];
+
+const MODEL_SAMPLE_PROMPTS: Record<string, string[]> = {
+  "model_claude-sonnet-5": [
+    "Summarize this support ticket thread",
+    "Rewrite this changelog entry for a non-technical audience",
+    "Draft a first pass at the onboarding email",
+  ],
+  "model_gpt-5-mini": [
+    "Classify these 40 tickets by urgency",
+    "Extract line items from this invoice text",
+  ],
+  "model_gpt-5": ["Plan the migration steps for the billing schema change"],
+  "model_gemini-2-5-pro": ["Summarize this 90-minute call transcript"],
+  "model_claude-haiku-4-5": ["Tag these reviews by sentiment"],
+  "model_mistral-large-3": ["Generate a JSON schema from this sample payload"],
 };
 
 function pickWeighted<T extends { weight: number }>(pool: T[], roll: number): T {
@@ -137,10 +169,20 @@ export function buildSeedState(now: number): SeedState {
     activatedAt: now - 25 * DAY,
     expiresAt: now - 25 * DAY + PASS_DURATIONS_MS.pass_7d,
   };
-  const passes = [scoutPass, inboxPass, refactorPass];
+  // One active model pass alongside the agent passes above.
+  const sonnetPass: OwnedPass = {
+    id: makeId("pass", rng),
+    modelId: "model_claude-sonnet-5",
+    type: "pass_7d",
+    price: 10,
+    activatedAt: now - 1 * DAY,
+    expiresAt: now - 1 * DAY + PASS_DURATIONS_MS.pass_7d,
+  };
+  const passes = [scoutPass, inboxPass, refactorPass, sonnetPass];
 
   for (const pass of passes) {
-    const agent = getAgentById(pass.agentId);
+    const agent = pass.agentId ? getAgentById(pass.agentId) : undefined;
+    const model = pass.modelId ? getModelById(pass.modelId) : undefined;
     transactions.push({
       id: makeId("txn", rng),
       type: "pass_purchase",
@@ -148,6 +190,8 @@ export function buildSeedState(now: number): SeedState {
       amount: pass.price,
       agentId: pass.agentId,
       agentName: agent?.name,
+      modelId: pass.modelId,
+      modelName: model?.name,
       passType: pass.type as PassType,
     });
   }
@@ -206,6 +250,54 @@ export function buildSeedState(now: number): SeedState {
     });
   }
 
+  // ~25 direct model calls over the trailing 30 days.
+  for (let i = 0; i < 25; i++) {
+    const { d } = pickWeighted(dayWeights, rng());
+    const { modelId } = pickWeighted(MODEL_USAGE_POOL, rng());
+    const model = getModelById(modelId);
+    if (!model) continue;
+
+    const hour = 9 + Math.floor(rng() * 9);
+    let createdAt = now - d * DAY - (24 - hour) * HOUR + Math.floor(rng() * 50) * 60 * 1000;
+    if (d === 0) createdAt = now - (1 + Math.floor(rng() * 5)) * HOUR;
+
+    const coveringPass = passes.find(
+      (p) =>
+        p.modelId === modelId && createdAt >= p.activatedAt && createdAt <= p.expiresAt,
+    );
+
+    const { amount, cappedOverrun } = rollActualCost(model.pricing.perRequest, rng);
+    const referenceCost = round4(
+      model.pricing.perRequest.estMin +
+        rng() * (model.pricing.perRequest.estMax - model.pricing.perRequest.estMin),
+    );
+    const { breakdown, inputTokens, outputTokens } = buildTokenBreakdown(
+      model.pricing.rateCard,
+      coveringPass ? referenceCost : amount,
+      rng,
+    );
+
+    const prompts = MODEL_SAMPLE_PROMPTS[modelId] ?? ["API call"];
+    transactions.push({
+      id: makeId("txn", rng),
+      type: "model_usage",
+      createdAt,
+      amount: coveringPass ? 0 : amount,
+      modelId,
+      modelName: model.name,
+      taskPrompt: prompts[Math.floor(rng() * prompts.length)],
+      breakdown,
+      inputTokens,
+      outputTokens,
+      executionMs: rollExecutionMs(1800, rng),
+      estimate: model.pricing.perRequest,
+      cappedOverrun: !coveringPass && cappedOverrun,
+      ...(coveringPass
+        ? { coveredByPassId: coveringPass.id, coveredByPassType: coveringPass.type }
+        : {}),
+    });
+  }
+
   transactions.sort((a, b) => b.createdAt - a.createdAt);
 
   const credits = transactions
@@ -215,10 +307,23 @@ export function buildSeedState(now: number): SeedState {
     .filter((t) => t.type !== "top_up")
     .reduce((s, t) => s + t.amount, 0);
 
+  const productionKey: ApiKey = {
+    id: makeId("key", rng),
+    label: "Production",
+    modelId: "model_claude-sonnet-5",
+    secret: generateApiKeySecret(rng),
+    last4: "",
+    createdAt: now - 20 * DAY,
+    lastUsedAt: now - 2 * HOUR,
+    revokedAt: null,
+  };
+  productionKey.last4 = productionKey.secret.slice(-4);
+
   return {
     balance: round4(credits - debits),
     transactions,
     passes,
     budgets: { daily: 2.5, weekly: 12, monthly: 40 },
+    apiKeys: [productionKey],
   };
 }

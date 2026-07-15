@@ -6,7 +6,9 @@ import {
   Blocks,
   Bot,
   ChartNoAxesColumn,
+  Cpu,
   Gauge,
+  KeyRound,
   LayoutDashboard,
   Moon,
   Plus,
@@ -18,6 +20,8 @@ import {
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { AGENTS, CATEGORY_LABELS } from "@/lib/data/agents";
+import { MODELS } from "@/lib/data/models";
+import { MODEL_PROVIDER_LABELS } from "@/lib/types";
 import { useAppStore } from "@/lib/store/app-store";
 import {
   Command,
@@ -38,11 +42,13 @@ export function openCommandPalette() {
 
 const PAGES = [
   { href: "/marketplace", label: "Marketplace", icon: Store },
+  { href: "/models", label: "Models", icon: Cpu },
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/wallet", label: "Wallet", icon: Wallet },
   { href: "/transactions", label: "Transactions", icon: ReceiptText },
   { href: "/analytics", label: "Analytics", icon: ChartNoAxesColumn },
   { href: "/budgets", label: "Budgets", icon: Gauge },
+  { href: "/api-keys", label: "API Keys", icon: KeyRound },
   { href: "/creator", label: "Creator Studio", icon: Blocks },
 ];
 
@@ -79,10 +85,10 @@ export function CommandPalette() {
       open={open}
       onOpenChange={setOpen}
       title="Command palette"
-      description="Jump to a page, find an agent, or run an action"
+      description="Jump to a page, find an agent or model, or run an action"
     >
       <Command>
-        <CommandInput placeholder="Search pages, agents, actions…" />
+        <CommandInput placeholder="Search pages, agents, models, actions…" />
         <CommandList>
           <CommandEmpty>No results.</CommandEmpty>
           <CommandGroup heading="Pages">
@@ -110,6 +116,22 @@ export function CommandPalette() {
             ))}
           </CommandGroup>
           <CommandSeparator />
+          <CommandGroup heading="Models">
+            {MODELS.map((model) => (
+              <CommandItem
+                key={model.id}
+                value={`${model.name} ${model.tagline} ${MODEL_PROVIDER_LABELS[model.provider]}`}
+                onSelect={() => go(`/models/${model.slug}`)}
+              >
+                <Cpu aria-hidden />
+                {model.name}
+                <span className="truncate text-xs text-muted-foreground">
+                  {MODEL_PROVIDER_LABELS[model.provider]}
+                </span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+          <CommandSeparator />
           <CommandGroup heading="Actions">
             <CommandItem
               onSelect={() => {
@@ -119,6 +141,10 @@ export function CommandPalette() {
             >
               <Plus aria-hidden />
               Top up wallet
+            </CommandItem>
+            <CommandItem onSelect={() => go("/api-keys")}>
+              <KeyRound aria-hidden />
+              Generate API key
             </CommandItem>
             <CommandItem
               onSelect={() => {

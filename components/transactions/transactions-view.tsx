@@ -14,7 +14,8 @@ type Filter = "all" | TransactionType;
 
 const FILTERS: Array<{ value: Filter; label: string }> = [
   { value: "all", label: "All" },
-  { value: "usage", label: "Usage" },
+  { value: "usage", label: "Agent usage" },
+  { value: "model_usage", label: "Model calls" },
   { value: "pass_purchase", label: "Passes" },
   { value: "top_up", label: "Top-ups" },
 ];
@@ -44,7 +45,9 @@ export function TransactionsView() {
     return transactions.filter((t) => {
       if (filter !== "all" && t.type !== filter) return false;
       if (!q) return true;
-      return [t.agentName, t.taskPrompt, t.id].some((f) => f?.toLowerCase().includes(q));
+      return [t.agentName, t.modelName, t.taskPrompt, t.id].some((f) =>
+        f?.toLowerCase().includes(q),
+      );
     });
   }, [transactions, filter, query]);
 
@@ -63,7 +66,7 @@ export function TransactionsView() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <Tabs value={filter} onValueChange={(v) => setFilter(v as Filter)}>
-          <TabsList>
+          <TabsList className="w-full justify-start overflow-x-auto sm:w-fit">
             {FILTERS.map((f) => (
               <TabsTrigger key={f.value} value={f.value}>
                 {f.label}
@@ -80,7 +83,7 @@ export function TransactionsView() {
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by agent or task…"
+            placeholder="Search by agent, model, or task…"
             aria-label="Search transactions"
             className="pl-8"
           />

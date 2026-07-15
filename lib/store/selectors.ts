@@ -46,6 +46,16 @@ export function getActivePass(
   );
 }
 
+export function getActiveModelPass(
+  passes: OwnedPass[],
+  modelId: string,
+  now: number,
+): OwnedPass | undefined {
+  return passes.find(
+    (p) => p.modelId === modelId && p.activatedAt <= now && p.expiresAt > now,
+  );
+}
+
 export function getActivePasses(passes: OwnedPass[], now: number): OwnedPass[] {
   return passes
     .filter((p) => p.expiresAt > now)
@@ -128,7 +138,10 @@ export function spendByProvider(
     if (t.type !== "usage" || t.createdAt < since || !t.breakdown || t.coveredByPassId)
       continue;
     for (const line of t.breakdown) {
-      map.set(line.provider, (map.get(line.provider) ?? 0) + line.amount);
+      // "usage" transactions (agent runs) always carry a real Provider —
+      // "input"/"output" lines only ever appear on "model_usage" transactions.
+      const provider = line.provider as Provider;
+      map.set(provider, (map.get(provider) ?? 0) + line.amount);
     }
   }
   return [...map.entries()]
