@@ -1,0 +1,146 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  Blocks,
+  Bot,
+  ChartNoAxesColumn,
+  Gauge,
+  LayoutDashboard,
+  Moon,
+  Plus,
+  ReceiptText,
+  RotateCcw,
+  Store,
+  Sun,
+  Wallet,
+} from "lucide-react";
+import { useTheme } from "next-themes";
+import { AGENTS, CATEGORY_LABELS } from "@/lib/data/agents";
+import { useAppStore } from "@/lib/store/app-store";
+import {
+  Command,
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+} from "@/components/ui/command";
+
+const OPEN_EVENT = "jatah:open-palette";
+
+export function openCommandPalette() {
+  window.dispatchEvent(new Event(OPEN_EVENT));
+}
+
+const PAGES = [
+  { href: "/marketplace", label: "Marketplace", icon: Store },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/wallet", label: "Wallet", icon: Wallet },
+  { href: "/transactions", label: "Transactions", icon: ReceiptText },
+  { href: "/analytics", label: "Analytics", icon: ChartNoAxesColumn },
+  { href: "/budgets", label: "Budgets", icon: Gauge },
+  { href: "/creator", label: "Creator Studio", icon: Blocks },
+];
+
+export function CommandPalette() {
+  const [open, setOpen] = useState(false);
+  const router = useRouter();
+  const { setTheme, resolvedTheme } = useTheme();
+  const resetDemo = useAppStore((s) => s.resetDemo);
+  const setTopUpOpen = useAppStore((s) => s.setTopUpOpen);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        setOpen((o) => !o);
+      }
+    };
+    const onOpen = () => setOpen(true);
+    window.addEventListener("keydown", onKey);
+    window.addEventListener(OPEN_EVENT, onOpen);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener(OPEN_EVENT, onOpen);
+    };
+  }, []);
+
+  const go = (href: string) => {
+    setOpen(false);
+    router.push(href);
+  };
+
+  return (
+    <CommandDialog
+      open={open}
+      onOpenChange={setOpen}
+      title="Command palette"
+      description="Jump to a page, find an agent, or run an action"
+    >
+      <Command>
+        <CommandInput placeholder="Search pages, agents, actions…" />
+        <CommandList>
+          <CommandEmpty>No results.</CommandEmpty>
+          <CommandGroup heading="Pages">
+            {PAGES.map((page) => (
+              <CommandItem key={page.href} onSelect={() => go(page.href)}>
+                <page.icon aria-hidden />
+                {page.label}
+              </CommandItem>
+            ))}
+          </CommandGroup>
+          <CommandSeparator />
+          <CommandGroup heading="Agents">
+            {AGENTS.map((agent) => (
+              <CommandItem
+                key={agent.id}
+                value={`${agent.name} ${agent.tagline} ${CATEGORY_LABELS[agent.category]}`}
+                onSelect={() => go(`/agents/${agent.slug}`)}
+              >
+                <Bot aria-hidden />
+                {agent.name}
+                <span className="truncate text-xs text-muted-foreground">
+                  {CATEGORY_LABELS[agent.category]}
+                </span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+          <CommandSeparator />
+          <CommandGroup heading="Actions">
+            <CommandItem
+              onSelect={() => {
+                setOpen(false);
+                setTopUpOpen(true);
+              }}
+            >
+              <Plus aria-hidden />
+              Top up wallet
+            </CommandItem>
+            <CommandItem
+              onSelect={() => {
+                setTheme(resolvedTheme === "dark" ? "light" : "dark");
+                setOpen(false);
+              }}
+            >
+              {resolvedTheme === "dark" ? <Sun aria-hidden /> : <Moon aria-hidden />}
+              Toggle theme
+            </CommandItem>
+            <CommandItem
+              onSelect={() => {
+                resetDemo();
+                setOpen(false);
+              }}
+            >
+              <RotateCcw aria-hidden />
+              Reset demo data
+            </CommandItem>
+          </CommandGroup>
+        </CommandList>
+      </Command>
+    </CommandDialog>
+  );
+}
