@@ -42,6 +42,11 @@ export function xlmToUsd(xlm: number): number {
   return Math.round(xlm * XLM_USD_RATE * 100) / 100;
 }
 
+/** Inverse of `xlmToUsd`, rounded to Stellar's 7-decimal stroop precision. */
+export function usdToXlm(usd: number): number {
+  return Math.round((usd / XLM_USD_RATE) * 1e7) / 1e7;
+}
+
 export function stellarExplorerTxUrl(hash: string): string {
   return `https://stellar.expert/explorer/testnet/tx/${hash}`;
 }

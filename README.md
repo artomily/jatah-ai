@@ -17,6 +17,7 @@ makes more sense than paying per task.
 - [Why](#why)
 - [How billing works](#how-billing-works)
 - [Two ways to pay](#two-ways-to-pay)
+- [Why Stellar](#why-stellar)
 - [Tech stack](#tech-stack)
 - [Architecture](#architecture)
 - [Project structure](#project-structure)
@@ -105,6 +106,36 @@ flowchart TD
 | Settlement | Instantly via x402, per run | Once, at purchase |
 | Receipt | Itemized per-provider breakdown | Runs inside the window show as covered, $0 |
 
+## Why Stellar
+
+The per-request charges this product is built around are small — a single agent run
+settles for a few cents, itemized down to the sub-cent. Card rails and most payment
+processors have a fixed cost per transaction that makes charges that size uneconomical;
+an autonomous buyer also can't sit through a checkout flow. That's the gap Stellar
+fills here: sub-cent fees, ~5 second finality, and a settlement path that doesn't
+require a human to approve a card.
+
+Concretely, in this codebase:
+
+- **Wallet top-ups run on-chain.** [`lib/stellar/soroban.ts`](./lib/stellar/soroban.ts)
+  calls a deployed Soroban contract (`top_up`) that pulls native XLM from a connected
+  wallet into a treasury account and records the credited amount on-chain — not a
+  database row, a contract call you can verify on
+  [Stellar Expert](https://stellar.expert).
+- **Any wallet, one interface.** [`lib/stellar/wallet-kit.ts`](./lib/stellar/wallet-kit.ts)
+  wraps `@creit.tech/stellar-wallets-kit` so connect/sign flows aren't hardcoded to one
+  wallet provider.
+- **Balances and history read straight from the chain.** `hooks/use-stellar-balance.ts`
+  and `hooks/use-onchain-credited.ts` query Horizon and the contract directly — the
+  [`StellarWalletCard`](./components/wallet/stellar-wallet-card.tsx) shown in the wallet
+  page isn't a mock.
+
+This runs entirely on **testnet** today (Friendbot-funded accounts, a demo treasury
+address) — it's the infra proving the settlement rail works, not a claim that real
+funds move. The per-request AI billing math itself (estimate, cap, receipt) is still
+simulated client-side; Stellar is wired in at the layer that's real in this demo — the
+wallet — as the foundation the rest of the settlement flow is modeled on.
+
 ## Tech stack
 
 - **[Next.js 16](https://nextjs.org)** (App Router) · **React 19** · **TypeScript**
@@ -113,6 +144,10 @@ flowchart TD
 - **[Recharts](https://recharts.org)** — analytics & spend charts
 - **[Motion](https://motion.dev)** — page and interaction animation
 - **x402** — the settlement protocol every charge in this demo models itself on
+- **[Stellar SDK](https://developers.stellar.org) + Soroban** — on-chain wallet
+  top-ups via a deployed testnet contract
+- **[`@creit.tech/stellar-wallets-kit`](https://github.com/Creit-Tech/Stellar-Wallets-Kit)**
+  — wallet-agnostic connect/sign
 
 ## Architecture
 
@@ -173,6 +208,7 @@ lib/
 ├─ format.ts            # Money / token / date formatting (locked rules)
 ├─ types.ts             # Agent, AiModel, Transaction, PassType, ...
 ├─ store/                # Zustand store, selectors, hooks
+├─ stellar/             # Soroban top-up contract calls, wallet-kit, Horizon reads
 └─ data/                # Seed catalog: agents, models, creators, providers
 ```
 

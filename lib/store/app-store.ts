@@ -105,6 +105,13 @@ interface AppState {
     agentId: string,
     type: PassType,
   ) => { ok: boolean; reason?: "insufficient" | "unavailable" };
+  /** Pays a pass directly from a Stellar wallet — bypasses the prepaid balance entirely. */
+  purchasePassWithStellar: (
+    agentId: string,
+    type: PassType,
+    txHash: string,
+    amountXlm: number,
+  ) => { ok: boolean; reason?: "unavailable" };
   startModelCall: (modelId: string, taskPrompt: string) => void;
   approveModelCall: (opts?: { overrideBudget?: boolean }) => void;
   cancelModelCall: () => void;
@@ -112,6 +119,12 @@ interface AppState {
     modelId: string,
     type: PassType,
   ) => { ok: boolean; reason?: "insufficient" | "unavailable" };
+  purchaseModelPassWithStellar: (
+    modelId: string,
+    type: PassType,
+    txHash: string,
+    amountXlm: number,
+  ) => { ok: boolean; reason?: "unavailable" };
   createApiKey: (modelId: string | null, label: string) => ApiKey;
   revokeApiKey: (id: string) => void;
   topUp: (amount: number) => void;
@@ -314,6 +327,41 @@ export const useAppStore = create<AppState>()(
         return { ok: true as const };
       },
 
+      purchasePassWithStellar: (agentId, type, txHash, amountXlm) => {
+        const agent = getAgentById(agentId);
+        const pricing = agent
+          ? getEffectivePricing(agent, get().creatorPricing).passes[type]
+          : undefined;
+        if (!agent || !pricing) return { ok: false as const, reason: "unavailable" as const };
+
+        const now = Date.now();
+        const pass: OwnedPass = {
+          id: makeId("pass"),
+          agentId,
+          type,
+          price: pricing.price,
+          activatedAt: now,
+          expiresAt: now + PASS_DURATIONS_MS[type],
+        };
+        const txn: Transaction = {
+          id: makeId("txn"),
+          type: "pass_purchase",
+          createdAt: now,
+          amount: pricing.price,
+          agentId,
+          agentName: agent.name,
+          passType: type,
+          stellarTxHash: txHash,
+          stellarAmountXlm: amountXlm,
+        };
+        set((s) => ({
+          passes: [pass, ...s.passes],
+          transactions: [txn, ...s.transactions],
+        }));
+        toast.success(`${PASS_LABELS[type]} active for ${agent.name}`);
+        return { ok: true as const };
+      },
+
       startModelCall: (modelId, taskPrompt) => {
         const model = getModelById(modelId);
         if (!model) return;
@@ -450,6 +498,39 @@ export const useAppStore = create<AppState>()(
         };
         set((s) => ({
           balance: round4(s.balance - pricing.price),
+          passes: [pass, ...s.passes],
+          transactions: [txn, ...s.transactions],
+        }));
+        toast.success(`${PASS_LABELS[type]} active for ${model.name}`);
+        return { ok: true as const };
+      },
+
+      purchaseModelPassWithStellar: (modelId, type, txHash, amountXlm) => {
+        const model = getModelById(modelId);
+        const pricing = model?.pricing.passes[type];
+        if (!model || !pricing) return { ok: false as const, reason: "unavailable" as const };
+
+        const now = Date.now();
+        const pass: OwnedPass = {
+          id: makeId("pass"),
+          modelId,
+          type,
+          price: pricing.price,
+          activatedAt: now,
+          expiresAt: now + PASS_DURATIONS_MS[type],
+        };
+        const txn: Transaction = {
+          id: makeId("txn"),
+          type: "pass_purchase",
+          createdAt: now,
+          amount: pricing.price,
+          modelId,
+          modelName: model.name,
+          passType: type,
+          stellarTxHash: txHash,
+          stellarAmountXlm: amountXlm,
+        };
+        set((s) => ({
           passes: [pass, ...s.passes],
           transactions: [txn, ...s.transactions],
         }));
