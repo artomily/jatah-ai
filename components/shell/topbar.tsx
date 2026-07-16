@@ -18,7 +18,6 @@ import {
 import { openCommandPalette } from "@/components/command-palette";
 
 const TITLES: Array<[string, string]> = [
-  ["/marketplace", "Marketplace"],
   ["/agents", "Agent details"],
   ["/models", "Models"],
   ["/api-keys", "API Keys"],
@@ -51,7 +50,7 @@ export function Topbar() {
         <SheetContent side="left" className="w-64 p-4">
           <SheetHeader className="p-0 pb-4 text-left">
             <SheetTitle asChild>
-              <Logo href="/marketplace" className="text-base" />
+              <Logo href="/dashboard" className="text-base" />
             </SheetTitle>
           </SheetHeader>
           <SidebarNav onNavigate={() => setMobileNavOpen(false)} />

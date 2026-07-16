@@ -10,7 +10,6 @@ import {
   KeyRound,
   LayoutDashboard,
   ReceiptText,
-  Store,
   Wallet,
   type LucideIcon,
 } from "lucide-react";
@@ -26,10 +25,7 @@ interface NavItem {
 const SECTIONS: Array<{ label: string; items: NavItem[] }> = [
   {
     label: "Browse",
-    items: [
-      { href: "/marketplace", label: "Marketplace", icon: Store, matchPrefix: "/agents" },
-      { href: "/models", label: "Models", icon: Cpu },
-    ],
+    items: [{ href: "/models", label: "Models", icon: Cpu }],
   },
   {
     label: "Your account",

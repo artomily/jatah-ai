@@ -8,9 +8,8 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 
 const LINKS = [
-  { href: "/marketplace", label: "Marketplace" },
+  { href: "/models", label: "Models" },
   { href: "/#pricing", label: "Pricing" },
-  { href: "/creator", label: "For creators" },
 ];
 
 export function MarketingNav() {
@@ -37,7 +36,7 @@ export function MarketingNav() {
             <Link href="/dashboard">Sign in</Link>
           </Button>
           <Button asChild>
-            <Link href="/marketplace">Explore agents</Link>
+            <Link href="/models">Browse models</Link>
           </Button>
         </div>
         <Button
@@ -63,7 +62,7 @@ export function MarketingNav() {
                 <Link href="/dashboard">Sign in</Link>
               </Button>
               <Button className="flex-1" asChild>
-                <Link href="/marketplace">Explore agents</Link>
+                <Link href="/models">Browse models</Link>
               </Button>
             </div>
           </nav>

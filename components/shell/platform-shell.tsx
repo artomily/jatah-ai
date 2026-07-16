@@ -6,7 +6,7 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-svh w-full flex-1">
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col gap-6 border-r bg-sidebar px-3 py-5 lg:flex">
-        <Logo href="/marketplace" className="px-2.5" />
+        <Logo href="/dashboard" className="px-2.5" />
         <SidebarNav />
         <p className="px-2.5 text-xs leading-relaxed text-muted-foreground/70">
           Payments settle via x402.

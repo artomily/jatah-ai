@@ -5,17 +5,17 @@ const TIERS = [
   {
     type: "pass_24h" as const,
     from: "$1.50",
-    body: "One deadline, one hackathon, one big push. Unlock a day of unlimited runs on the agent you need.",
+    body: "One deadline, one hackathon, one big push. Unlock a day of unlimited calls on the model you need.",
   },
   {
     type: "pass_7d" as const,
     from: "$7.00",
-    body: "A sprint week, a launch, a project deadline. Run as much as the week needs, then it's done.",
+    body: "A sprint week, a launch, a project deadline. Call as much as the week needs, then it's done.",
   },
   {
     type: "pass_30d" as const,
     from: "$18.00",
-    body: "For agents you lean on constantly — a month of access at a fraction of what per-request usage would cost.",
+    body: "For models you lean on constantly — a month of access at a fraction of what per-request usage would cost.",
   },
 ];
 
@@ -28,8 +28,8 @@ export function PassTiers() {
             Or pay for a window, not a task
           </h2>
           <p className="mt-2 text-muted-foreground">
-            Time passes work like a day pass at a gym — access for a window, set per agent
-            by its creator, priced from $1.50.
+            Time passes work like a day pass at a gym — access for a window, set per
+            model, priced from $1.50.
           </p>
         </div>
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">

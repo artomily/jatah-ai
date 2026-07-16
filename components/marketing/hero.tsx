@@ -44,13 +44,13 @@ export function Hero() {
           </p>
           <div className="flex flex-wrap items-center gap-3">
             <Button size="lg" asChild>
-              <Link href="/marketplace">
-                Explore agents
+              <Link href="/models">
+                Browse models
                 <ArrowRight className="size-4" aria-hidden />
               </Link>
             </Button>
             <Button size="lg" variant="outline" asChild>
-              <Link href="/creator">Start building</Link>
+              <Link href="/api-keys">Generate an API key</Link>
             </Button>
             <WatchDemoDialog />
           </div>

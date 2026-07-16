@@ -5,16 +5,9 @@ const COLUMNS = [
   {
     heading: "Product",
     links: [
-      { href: "/marketplace", label: "Marketplace" },
+      { href: "/models", label: "Models" },
       { href: "/dashboard", label: "Dashboard" },
       { href: "/#pricing", label: "Pricing" },
-    ],
-  },
-  {
-    heading: "Build",
-    links: [
-      { href: "/creator", label: "Creator Studio" },
-      { href: "/marketplace", label: "Submit an agent" },
     ],
   },
   {
@@ -33,7 +26,7 @@ export function MarketingFooter() {
         <div className="max-w-xs">
           <Logo />
           <p className="mt-3 text-sm text-muted-foreground">
-            The payment layer for AI agents. Humans pay by time. Machines pay by usage.
+            The payment layer for AI models. Humans pay by time. Machines pay by usage.
           </p>
         </div>
         <div className="grid grid-cols-2 gap-8 sm:grid-cols-3">

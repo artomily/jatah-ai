@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Blocks,
-  Bot,
   ChartNoAxesColumn,
   Cpu,
   Gauge,
@@ -14,12 +13,10 @@ import {
   Plus,
   ReceiptText,
   RotateCcw,
-  Store,
   Sun,
   Wallet,
 } from "lucide-react";
 import { useTheme } from "next-themes";
-import { AGENTS, CATEGORY_LABELS } from "@/lib/data/agents";
 import { MODELS } from "@/lib/data/models";
 import { MODEL_PROVIDER_LABELS } from "@/lib/types";
 import { useAppStore } from "@/lib/store/app-store";
@@ -41,7 +38,6 @@ export function openCommandPalette() {
 }
 
 const PAGES = [
-  { href: "/marketplace", label: "Marketplace", icon: Store },
   { href: "/models", label: "Models", icon: Cpu },
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/wallet", label: "Wallet", icon: Wallet },
@@ -85,10 +81,10 @@ export function CommandPalette() {
       open={open}
       onOpenChange={setOpen}
       title="Command palette"
-      description="Jump to a page, find an agent or model, or run an action"
+      description="Jump to a page, find a model, or run an action"
     >
       <Command>
-        <CommandInput placeholder="Search pages, agents, models, actions…" />
+        <CommandInput placeholder="Search pages, models, actions…" />
         <CommandList>
           <CommandEmpty>No results.</CommandEmpty>
           <CommandGroup heading="Pages">
@@ -96,22 +92,6 @@ export function CommandPalette() {
               <CommandItem key={page.href} onSelect={() => go(page.href)}>
                 <page.icon aria-hidden />
                 {page.label}
-              </CommandItem>
-            ))}
-          </CommandGroup>
-          <CommandSeparator />
-          <CommandGroup heading="Agents">
-            {AGENTS.map((agent) => (
-              <CommandItem
-                key={agent.id}
-                value={`${agent.name} ${agent.tagline} ${CATEGORY_LABELS[agent.category]}`}
-                onSelect={() => go(`/agents/${agent.slug}`)}
-              >
-                <Bot aria-hidden />
-                {agent.name}
-                <span className="truncate text-xs text-muted-foreground">
-                  {CATEGORY_LABELS[agent.category]}
-                </span>
               </CommandItem>
             ))}
           </CommandGroup>
