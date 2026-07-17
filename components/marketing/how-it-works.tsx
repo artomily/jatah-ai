@@ -49,7 +49,7 @@ const STEPS = [
 
 export function HowItWorks() {
   return (
-    <section className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-8 sm:py-28">
+    <section id="how-it-works" className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-8 sm:py-28">
       <div className="mb-14 max-w-xl">
         <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">How it works</h2>
         <p className="mt-2 text-muted-foreground">

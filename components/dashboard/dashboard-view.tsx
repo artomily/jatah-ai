@@ -20,6 +20,7 @@ import { StatCard } from "@/components/dashboard/stat-card";
 import { BudgetProgress } from "@/components/dashboard/budget-progress";
 import { TopAgentsList } from "@/components/dashboard/top-agents-list";
 import { PassCard } from "@/components/billing/pass-card";
+import { PricingList } from "@/components/dashboard/pricing-list";
 import { SpendAreaChart } from "@/components/charts/spend-area-chart";
 import { TransactionRow } from "@/components/wallet/transaction-row";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -124,6 +125,8 @@ export function DashboardView() {
           </div>
         </div>
       )}
+
+      <PricingList />
 
       <div className="flex flex-col gap-2 rounded-xl border bg-card p-5 shadow-card">
         <div className="flex items-center justify-between">
