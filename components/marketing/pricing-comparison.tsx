@@ -37,7 +37,7 @@ const PERSONAS = [
 
 export function PricingComparison() {
   return (
-    <section id="pricing" className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-8 sm:py-28">
+    <section id="pricing" className="mx-auto w-full max-w-6xl scroll-mt-20 px-4 py-20 sm:px-8 sm:py-28">
       <div className="mb-14 max-w-xl">
         <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
           One price for everyone was never going to work

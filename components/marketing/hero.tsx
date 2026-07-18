@@ -113,11 +113,11 @@ export function Hero() {
         };
 
   return (
-    <section className="w-full px-4 pt-4 sm:px-6 sm:pt-6 lg:px-8">
+    <section id="models" className="w-full scroll-mt-20 px-4 pt-4 sm:px-6 sm:pt-6 lg:px-8">
       <div
         ref={containerRef}
         onMouseMove={handleMouseMove}
-        className="relative min-h-[640px] w-full overflow-hidden rounded-[2.5rem] border border-white/10 bg-black xl:min-h-[720px]"
+        className="relative flex min-h-200 w-full flex-col items-center justify-center overflow-hidden rounded-[2.5rem] border border-white/10 bg-black xl:min-h-230"
       >
         {/* matte base + vignette */}
         <div className="pointer-events-none absolute inset-0 bg-neutral-950" aria-hidden />
@@ -283,7 +283,7 @@ export function Hero() {
 
         {/* floating UI cards */}
         <div className="absolute inset-0 hidden xl:block" style={parallax(0.06)} aria-hidden>
-          <GlassCard className="top-[26%] left-10 w-52" delay={0.9} float={11} rotate={-3}>
+          <GlassCard className="top-36 left-10 w-52" delay={0.9} float={11} rotate={-3}>
             <p className="text-xs font-medium text-white/50">Cost Estimate</p>
             <div className="mt-2 flex items-baseline justify-between">
               <span className="text-xs text-white/50">Claude 4</span>
@@ -295,7 +295,7 @@ export function Hero() {
             </div>
           </GlassCard>
 
-          <GlassCard className="top-[30%] right-6 w-52" delay={1.05} float={7} rotate={2}>
+          <GlassCard className="top-52 right-6 w-52" delay={1.05} float={7} rotate={2}>
             <p className="text-xs font-medium text-white/50">Receipt</p>
             <dl className="mt-2 flex flex-col gap-1 text-xs">
               <div className="flex items-center justify-between">
@@ -313,7 +313,7 @@ export function Hero() {
             </dl>
           </GlassCard>
 
-          <GlassCard className="top-[70%] left-24 w-44" delay={1.2} float={9} rotate={4}>
+          <GlassCard className="bottom-32 left-24 w-44" delay={1.2} float={9} rotate={4}>
             <div className="flex items-baseline justify-between">
               <p className="text-xs font-medium text-white/50">Hard Cap</p>
               <span className="text-sm font-semibold text-white">$5.00</span>
@@ -323,7 +323,7 @@ export function Hero() {
             </div>
           </GlassCard>
 
-          <GlassCard className="top-[70%] right-16 w-48" delay={1.35} float={12} rotate={-2}>
+          <GlassCard className="bottom-20 right-16 w-48" delay={1.35} float={12} rotate={-2}>
             <p className="text-xs font-medium text-white/50">24 Hour Pass</p>
             <p className="mt-1.5 text-sm font-medium text-white">Unlimited Requests</p>
             <p className="mt-0.5 text-xs tabular-nums text-white/45">18h remaining</p>
@@ -384,7 +384,19 @@ export function Hero() {
               className="border-white/20 bg-transparent text-white hover:bg-white/10"
               asChild
             >
-              <Link href="#how-it-works">See How It Works</Link>
+              <Link
+                href="#how-it-works"
+                onClick={(e) => {
+                  const target = document.getElementById("how-it-works");
+                  if (target) {
+                    e.preventDefault();
+                    window.history.pushState(null, "", "#how-it-works");
+                    target.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }
+                }}
+              >
+                See How It Works
+              </Link>
             </Button>
           </motion.div>
         </div>

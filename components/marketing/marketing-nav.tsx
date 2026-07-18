@@ -8,15 +8,36 @@ import { Button } from "@/components/ui/button";
 
 const LINKS = [
   { href: "/", label: "Home" },
-  { href: "/models", label: "Models" },
+  { href: "/#models", label: "Models" },
   { href: "/#pricing", label: "Pricing" },
-  { href: "/api-keys", label: "Developers" },
+  { href: "/#how-it-works", label: "Developers" },
   { href: "#", label: "Docs" },
   { href: "#", label: "FAQ" },
 ];
 
+/**
+ * Next.js's <Link> only runs its scroll-to-hash logic on an actual route
+ * change — clicking a hash link while already on that route just updates
+ * the URL without scrolling. Since this nav only ever renders on "/", every
+ * hash link here is a same-page jump, so we scroll manually instead.
+ */
+function scrollToHash(href: string) {
+  const hash = href.slice(href.indexOf("#"));
+  if (hash.length <= 1) return false;
+  const target = document.querySelector(hash);
+  if (!target) return false;
+  window.history.pushState(null, "", hash);
+  target.scrollIntoView({ behavior: "smooth", block: "start" });
+  return true;
+}
+
 export function MarketingNav() {
   const [open, setOpen] = useState(false);
+
+  const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    if (!href.includes("#")) return;
+    if (scrollToHash(href)) e.preventDefault();
+  };
 
   return (
     <header className="sticky top-0 z-50 border-b border-white/10 bg-black/70 backdrop-blur-xl">
@@ -35,6 +56,7 @@ export function MarketingNav() {
             <Link
               key={link.label}
               href={link.href}
+              onClick={(e) => handleLinkClick(e, link.href)}
               className="text-white/60 transition-colors hover:text-white"
             >
               {link.label}
@@ -66,7 +88,10 @@ export function MarketingNav() {
               <Link
                 key={link.label}
                 href={link.href}
-                onClick={() => setOpen(false)}
+                onClick={(e) => {
+                  handleLinkClick(e, link.href);
+                  setOpen(false);
+                }}
                 className="hover:text-white"
               >
                 {link.label}
