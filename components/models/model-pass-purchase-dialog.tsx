@@ -24,10 +24,12 @@ export function ModelPassPurchaseDialog({
   model,
   open,
   onOpenChange,
+  defaultType,
 }: {
   model: AiModel;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  defaultType?: PassType;
 }) {
   const hydrated = useHydrated();
   const balance = useAppStore((s) => s.balance);
@@ -37,7 +39,9 @@ export function ModelPassPurchaseDialog({
   const passEntries = Object.entries(model.pricing.passes) as Array<
     [PassType, { price: number }]
   >;
-  const [selected, setSelected] = useState<PassType | null>(passEntries[0]?.[0] ?? null);
+  const [selected, setSelected] = useState<PassType | null>(
+    defaultType ?? passEntries[0]?.[0] ?? null,
+  );
   const [justBought, setJustBought] = useState<PassType | null>(null);
 
   const selectedEntry = passEntries.find(([type]) => type === selected);

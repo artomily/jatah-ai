@@ -4,13 +4,18 @@ import { notFound } from "next/navigation";
 import { ArrowRight, CircleCheck } from "lucide-react";
 import { MODELS, getModel } from "@/lib/data/models";
 import { MODEL_PROVIDER_LABELS } from "@/lib/types";
-import { formatCompact } from "@/lib/format";
+import type { PassType } from "@/lib/types";
+import { PASS_LABELS, formatCompact } from "@/lib/format";
 import { ModelCard } from "@/components/models/model-card";
 import { ModelBillingCard } from "@/components/models/model-billing-card";
 import { Badge } from "@/components/ui/badge";
 
 export function generateStaticParams() {
   return MODELS.map((model) => ({ slug: model.slug }));
+}
+
+function isPassType(v: string | undefined): v is PassType {
+  return Boolean(v && (Object.keys(PASS_LABELS) as string[]).includes(v));
 }
 
 export async function generateMetadata(
@@ -29,6 +34,11 @@ export default async function ModelDetailPage(props: PageProps<"/models/[slug]">
   const { slug } = await props.params;
   const model = getModel(slug);
   if (!model) notFound();
+
+  const searchParams = await props.searchParams;
+  const buyParam = typeof searchParams.buy === "string" ? searchParams.buy : undefined;
+  const initialBuyPass =
+    isPassType(buyParam) && model.pricing.passes[buyParam] ? buyParam : undefined;
 
   const moreFromProvider = MODELS.filter(
     (m) => m.provider === model.provider && m.id !== model.id,
@@ -96,7 +106,7 @@ export default async function ModelDetailPage(props: PageProps<"/models/[slug]">
       </div>
 
       <div className="w-full shrink-0 lg:sticky lg:top-20 lg:w-80">
-        <ModelBillingCard model={model} />
+        <ModelBillingCard model={model} initialBuyPass={initialBuyPass} />
       </div>
     </div>
   );

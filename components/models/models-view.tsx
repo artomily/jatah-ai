@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Search, SearchX } from "lucide-react";
+import { Search, SearchX, Ticket, X } from "lucide-react";
 import { MODELS, MODEL_PROVIDERS } from "@/lib/data/models";
 import { MODEL_PROVIDER_LABELS } from "@/lib/types";
-import type { ModelProvider } from "@/lib/types";
+import type { ModelProvider, PassType } from "@/lib/types";
+import { PASS_LABELS } from "@/lib/format";
 import { ModelCard } from "@/components/models/model-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,12 +31,18 @@ function isProvider(v: string | undefined): v is ModelProvider {
   return Boolean(v && (MODEL_PROVIDERS as string[]).includes(v));
 }
 
+function isPassType(v: string | undefined): v is PassType {
+  return Boolean(v && (Object.keys(PASS_LABELS) as string[]).includes(v));
+}
+
 export function ModelsView({
   initialProvider,
   initialQuery,
+  initialPass,
 }: {
   initialProvider?: string;
   initialQuery?: string;
+  initialPass?: string;
 }) {
   const pathname = usePathname();
   const [provider, setProvider] = useState<ProviderFilter>(
@@ -43,6 +50,9 @@ export function ModelsView({
   );
   const [query, setQuery] = useState(initialQuery ?? "");
   const [sort, setSort] = useState<Sort>("price");
+  const [pass, setPass] = useState<PassType | null>(
+    isPassType(initialPass) ? initialPass : null,
+  );
   const firstRender = useRef(true);
 
   useEffect(() => {
@@ -53,9 +63,10 @@ export function ModelsView({
     const params = new URLSearchParams();
     if (provider !== "all") params.set("provider", provider);
     if (query) params.set("q", query);
+    if (pass) params.set("pass", pass);
     const qs = params.toString();
     window.history.replaceState(null, "", qs ? `${pathname}?${qs}` : pathname);
-  }, [provider, query, pathname]);
+  }, [provider, query, pass, pathname]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -68,13 +79,19 @@ export function ModelsView({
         .includes(q);
     });
     return list.sort((a, b) => {
+      if (pass) {
+        const aPrice = a.pricing.passes[pass]?.price;
+        const bPrice = b.pricing.passes[pass]?.price;
+        if ((aPrice != null) !== (bPrice != null)) return aPrice != null ? -1 : 1;
+        if (aPrice != null && bPrice != null) return aPrice - bPrice;
+      }
       if (sort === "context") return b.contextWindow - a.contextWindow;
       return a.pricing.perRequest.estMin - b.pricing.perRequest.estMin;
     });
-  }, [provider, query, sort]);
+  }, [provider, query, sort, pass]);
 
   const featured = useMemo(() => MODELS.filter((m) => m.featured), []);
-  const showFeatured = provider === "all" && !query.trim();
+  const showFeatured = provider === "all" && !query.trim() && !pass;
 
   return (
     <div className="flex flex-col gap-6">
@@ -87,6 +104,27 @@ export function ModelsView({
           request with a hard cap, or covered by a time pass.
         </p>
       </div>
+
+      {pass && (
+        <div className="flex items-center gap-2 rounded-xl border bg-brand-soft/40 px-4 py-3 text-sm">
+          <Ticket
+            className="size-4 shrink-0 text-brand dark:text-sidebar-accent-foreground"
+            aria-hidden
+          />
+          <p className="flex-1">
+            Picking a model for a {PASS_LABELS[pass]} — models that offer it are shown
+            first.
+          </p>
+          <button
+            type="button"
+            onClick={() => setPass(null)}
+            aria-label="Dismiss"
+            className="rounded-md p-1 text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <X className="size-4" aria-hidden />
+          </button>
+        </div>
+      )}
 
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -167,7 +205,7 @@ export function ModelsView({
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {filtered.map((model) => (
-              <ModelCard key={model.id} model={model} />
+              <ModelCard key={model.id} model={model} highlightPass={pass ?? undefined} />
             ))}
           </div>
         )}

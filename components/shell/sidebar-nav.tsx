@@ -30,7 +30,7 @@ const SECTIONS: Array<{ label: string; items: NavItem[] }> = [
   {
     label: "Your account",
     items: [
-      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/", label: "Dashboard", icon: LayoutDashboard },
       { href: "/wallet", label: "Wallet", icon: Wallet },
       { href: "/transactions", label: "Transactions", icon: ReceiptText },
       { href: "/analytics", label: "Analytics", icon: ChartNoAxesColumn },

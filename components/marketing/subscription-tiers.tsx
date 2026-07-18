@@ -1,6 +1,10 @@
+import Link from "next/link";
 import { Check } from "lucide-react";
-import { formatCompact } from "@/lib/format";
+import { MODELS } from "@/lib/data/models";
+import { formatCompact, formatMoneyExact } from "@/lib/format";
+import type { PassType } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 const TIERS = [
   {
@@ -8,27 +12,40 @@ const TIERS = [
     blurb: "Everyday utility calls — fast, cheap, always on.",
     tokenLimit: 8_000_000,
     models: ["Claude Haiku 4.5", "GPT-5 Mini"],
-    price24h: "$1.50",
-    price1w: "$5.00",
+    // GPT-5 Mini has no passes — Claude Haiku 4.5 is the only Basic model with a 24h pass.
+    ctaLabel: "Start with Claude Haiku 4.5",
+    ctaHref: "/models/claude-haiku-4-5?buy=pass_24h",
   },
   {
     name: "Standard",
     blurb: "Most teams' daily driver — reasoning without the frontier price.",
     tokenLimit: 20_000_000,
     models: ["Claude Sonnet 5", "Gemini 2.5 Pro"],
-    price24h: "$3.50",
-    price1w: "$10.00",
     highlight: true,
+    // Gemini 2.5 Pro has no 24h pass — Claude Sonnet 5 does.
+    ctaLabel: "Start with Claude Sonnet 5",
+    ctaHref: "/models/claude-sonnet-5?buy=pass_24h",
   },
   {
     name: "Premium",
     blurb: "Frontier models for the runs that can't afford to be wrong.",
     tokenLimit: 40_000_000,
     models: ["GPT-5", "Claude Opus 4.8"],
-    price24h: "$6.00",
-    price1w: "$16.00",
+    // Claude Opus 4.8 has no 24h pass — GPT-5 does.
+    ctaLabel: "Start with GPT-5",
+    ctaHref: "/models/gpt-5?buy=pass_24h",
   },
 ];
+
+/** Cheapest live pass price among the tier's listed models, so the card never
+ * contradicts the purchase dialog its CTA opens. Null when none of the tier's
+ * models offer that duration. */
+function tierFromPrice(modelNames: string[], type: PassType): string | null {
+  const prices = MODELS.filter((m) => modelNames.includes(m.name))
+    .map((m) => m.pricing.passes[type]?.price)
+    .filter((p): p is number => p != null);
+  return prices.length ? `from ${formatMoneyExact(Math.min(...prices))}` : null;
+}
 
 export function SubscriptionTiers() {
   return (
@@ -67,15 +84,23 @@ export function SubscriptionTiers() {
               <div className="flex items-center justify-between border-t pt-4">
                 <div>
                   <p className="text-xs text-muted-foreground">24 Hour</p>
-                  <p className="text-xl font-semibold tracking-tight tabular-nums">
-                    {tier.price24h}
-                  </p>
+                  {tierFromPrice(tier.models, "pass_24h") ? (
+                    <p className="text-xl font-semibold tracking-tight tabular-nums">
+                      {tierFromPrice(tier.models, "pass_24h")}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground/70">Not offered</p>
+                  )}
                 </div>
                 <div className="text-right">
                   <p className="text-xs text-muted-foreground">1 Week</p>
-                  <p className="text-xl font-semibold tracking-tight tabular-nums">
-                    {tier.price1w}
-                  </p>
+                  {tierFromPrice(tier.models, "pass_7d") ? (
+                    <p className="text-xl font-semibold tracking-tight tabular-nums">
+                      {tierFromPrice(tier.models, "pass_7d")}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground/70">Not offered</p>
+                  )}
                 </div>
               </div>
 
@@ -96,6 +121,10 @@ export function SubscriptionTiers() {
                   </li>
                 ))}
               </ul>
+
+              <Button variant={tier.highlight ? "default" : "outline"} asChild>
+                <Link href={tier.ctaHref}>{tier.ctaLabel}</Link>
+              </Button>
             </div>
           ))}
         </div>

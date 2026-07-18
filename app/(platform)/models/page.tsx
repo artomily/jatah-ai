@@ -12,6 +12,7 @@ export default async function ModelsPage(props: PageProps<"/models">) {
   const provider =
     typeof searchParams.provider === "string" ? searchParams.provider : undefined;
   const q = typeof searchParams.q === "string" ? searchParams.q : undefined;
+  const pass = typeof searchParams.pass === "string" ? searchParams.pass : undefined;
 
-  return <ModelsView initialProvider={provider} initialQuery={q} />;
+  return <ModelsView initialProvider={provider} initialQuery={q} initialPass={pass} />;
 }

@@ -20,13 +20,19 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-export function ModelBillingCard({ model }: { model: AiModel }) {
+export function ModelBillingCard({
+  model,
+  initialBuyPass,
+}: {
+  model: AiModel;
+  initialBuyPass?: PassType;
+}) {
   const hydrated = useHydrated();
   const passes = useAppStore((s) => s.passes);
   const startModelCall = useAppStore((s) => s.startModelCall);
   const [prompt, setPrompt] = useState("");
   const [callOpen, setCallOpen] = useState(false);
-  const [passOpen, setPassOpen] = useState(false);
+  const [passOpen, setPassOpen] = useState(Boolean(initialBuyPass));
   const [keyOpen, setKeyOpen] = useState(false);
 
   const now = useNow();
@@ -128,7 +134,12 @@ export function ModelBillingCard({ model }: { model: AiModel }) {
 
       <TestCallModal model={model} open={callOpen} onOpenChange={setCallOpen} />
       {passEntries.length > 0 && (
-        <ModelPassPurchaseDialog model={model} open={passOpen} onOpenChange={setPassOpen} />
+        <ModelPassPurchaseDialog
+          model={model}
+          open={passOpen}
+          onOpenChange={setPassOpen}
+          defaultType={initialBuyPass}
+        />
       )}
       <CreateApiKeyDialog
         open={keyOpen}
