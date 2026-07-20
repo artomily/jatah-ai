@@ -5,6 +5,7 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import { toast } from "sonner";
 import {
   buildBreakdown,
+  buildRealTokenBreakdown,
   buildTokenBreakdown,
   generateApiKeySecret,
   makeId,
@@ -22,21 +23,23 @@ import {
 } from "@/lib/format";
 import { getAgentById } from "@/lib/data/agents";
 import { getModelById } from "@/lib/data/models";
+import { getTier, tierModels } from "@/lib/data/tiers";
 import { buildSeedState } from "@/lib/data/seed";
 import type {
   ApiKey,
   BillingModel,
   BudgetWindow,
   Budgets,
+  CostLine,
   OwnedPass,
   PassType,
   PerRequestPricing,
   Transaction,
 } from "@/lib/types";
 import {
-  getActiveModelPass,
   getActivePass,
   getEffectivePricing,
+  getModelCoverage,
   spentSince,
 } from "@/lib/store/selectors";
 
@@ -112,6 +115,12 @@ interface AppState {
     txHash: string,
     amountXlm: number,
   ) => { ok: boolean; reason?: "unavailable" };
+  /** Pays a pass via QRIS through the Midtrans sandbox — settlement checked server-side. */
+  purchasePassWithQris: (
+    agentId: string,
+    type: PassType,
+    orderId: string,
+  ) => { ok: boolean; reason?: "unavailable" };
   startModelCall: (modelId: string, taskPrompt: string) => void;
   approveModelCall: (opts?: { overrideBudget?: boolean }) => void;
   cancelModelCall: () => void;
@@ -125,10 +134,32 @@ interface AppState {
     txHash: string,
     amountXlm: number,
   ) => { ok: boolean; reason?: "unavailable" };
+  purchaseModelPassWithQris: (
+    modelId: string,
+    type: PassType,
+    orderId: string,
+  ) => { ok: boolean; reason?: "unavailable" };
+  /** Buys a multi-model tier bundle from the prepaid balance. */
+  purchaseTierPass: (
+    tierSlug: string,
+    type: PassType,
+  ) => { ok: boolean; reason?: "insufficient" | "unavailable" };
+  purchaseTierPassWithStellar: (
+    tierSlug: string,
+    type: PassType,
+    txHash: string,
+    amountXlm: number,
+  ) => { ok: boolean; reason?: "unavailable" };
+  purchaseTierPassWithQris: (
+    tierSlug: string,
+    type: PassType,
+    orderId: string,
+  ) => { ok: boolean; reason?: "unavailable" };
   createApiKey: (modelId: string | null, label: string) => ApiKey;
   revokeApiKey: (id: string) => void;
   topUp: (amount: number) => void;
   topUpWithStellar: (amountUsd: number, amountXlm: number, txHash: string) => void;
+  topUpWithQris: (amountUsd: number, orderId: string) => void;
   setTopUpOpen: (open: boolean) => void;
   setBudget: (window: BudgetWindow, cap: number | null) => void;
   setCreatorPricing: (agentId: string, model: BillingModel, enabled: boolean) => void;
@@ -137,6 +168,7 @@ interface AppState {
 
 let runTimer: ReturnType<typeof setTimeout> | null = null;
 let modelRunTimer: ReturnType<typeof setTimeout> | null = null;
+let modelCallAbort: AbortController | null = null;
 let runTokenCounter = 0;
 
 function clearRunTimer() {
@@ -151,6 +183,40 @@ function clearModelRunTimer() {
     clearTimeout(modelRunTimer);
     modelRunTimer = null;
   }
+}
+
+function abortModelCall() {
+  if (modelCallAbort) {
+    modelCallAbort.abort();
+    modelCallAbort = null;
+  }
+}
+
+interface LiveCallResponse {
+  text: string;
+  inputTokens: number;
+  outputTokens: number;
+  latencyMs: number;
+  liveModelId: string;
+}
+
+/** POSTs the prompt to the live-call route; rejects with the API's error code. */
+async function requestLiveCall(
+  modelId: string,
+  prompt: string,
+  signal: AbortSignal,
+): Promise<LiveCallResponse> {
+  const res = await fetch("/api/model-call", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ modelId, prompt }),
+    signal,
+  });
+  const data = (await res.json()) as Partial<LiveCallResponse> & { error?: string };
+  if (!res.ok || typeof data.text !== "string") {
+    throw new Error(data.error ?? "upstream_error");
+  }
+  return data as LiveCallResponse;
 }
 
 /** Shared by agent and model approval flows. */
@@ -362,6 +428,40 @@ export const useAppStore = create<AppState>()(
         return { ok: true as const };
       },
 
+      purchasePassWithQris: (agentId, type, orderId) => {
+        const agent = getAgentById(agentId);
+        const pricing = agent
+          ? getEffectivePricing(agent, get().creatorPricing).passes[type]
+          : undefined;
+        if (!agent || !pricing) return { ok: false as const, reason: "unavailable" as const };
+
+        const now = Date.now();
+        const pass: OwnedPass = {
+          id: makeId("pass"),
+          agentId,
+          type,
+          price: pricing.price,
+          activatedAt: now,
+          expiresAt: now + PASS_DURATIONS_MS[type],
+        };
+        const txn: Transaction = {
+          id: makeId("txn"),
+          type: "pass_purchase",
+          createdAt: now,
+          amount: pricing.price,
+          agentId,
+          agentName: agent.name,
+          passType: type,
+          midtransOrderId: orderId,
+        };
+        set((s) => ({
+          passes: [pass, ...s.passes],
+          transactions: [txn, ...s.transactions],
+        }));
+        toast.success(`${PASS_LABELS[type]} active for ${agent.name}`);
+        return { ok: true as const };
+      },
+
       startModelCall: (modelId, taskPrompt) => {
         const model = getModelById(modelId);
         if (!model) return;
@@ -376,7 +476,7 @@ export const useAppStore = create<AppState>()(
             taskPrompt,
             estimate: model.pricing.perRequest,
             executionMs: rollExecutionMs(1800),
-            coveredByPass: getActiveModelPass(get().passes, modelId, Date.now()),
+            coveredByPass: getModelCoverage(get().passes, modelId, Date.now()),
           },
         });
         modelRunTimer = setTimeout(() => {
@@ -412,24 +512,32 @@ export const useAppStore = create<AppState>()(
           }
         }
 
+        const model = getModelById(modelRun.modelId);
+        if (!model) return;
+
         const token = modelRun.runToken;
         set({ modelRun: { ...modelRun, phase: "running", budgetWarning: undefined } });
         clearModelRunTimer();
-        modelRunTimer = setTimeout(() => {
+        abortModelCall();
+
+        /** Shared terminal step for the live and simulated branches. */
+        const commitReceipt = (result: {
+          amountCharged: number;
+          breakdown: CostLine[];
+          inputTokens: number;
+          outputTokens: number;
+          executionMs: number;
+          cappedOverrun: boolean;
+          responseText?: string;
+          liveModelId?: string;
+          simulatedFallback?: boolean;
+        }) => {
           const state = get();
           const current = state.modelRun;
           if (!current || current.runToken !== token || current.phase !== "running") return;
 
-          const model = getModelById(current.modelId);
-          if (!model) return;
-
-          const rolled = rollActualCost(current.estimate);
           const covered = Boolean(current.coveredByPass);
-          const amount = covered ? 0 : rolled.amount;
-          const { breakdown, inputTokens, outputTokens } = buildTokenBreakdown(
-            model.pricing.rateCard,
-            rolled.amount,
-          );
+          const amount = covered ? 0 : result.amountCharged;
           const receipt: Transaction = {
             id: makeId("txn"),
             type: "model_usage",
@@ -438,12 +546,15 @@ export const useAppStore = create<AppState>()(
             modelId: model.id,
             modelName: model.name,
             taskPrompt: current.taskPrompt,
-            breakdown,
-            inputTokens,
-            outputTokens,
-            executionMs: current.executionMs,
+            breakdown: result.breakdown,
+            inputTokens: result.inputTokens,
+            outputTokens: result.outputTokens,
+            executionMs: result.executionMs,
             estimate: current.estimate,
-            cappedOverrun: !covered && rolled.cappedOverrun,
+            cappedOverrun: !covered && result.cappedOverrun,
+            ...(result.responseText != null ? { responseText: result.responseText } : {}),
+            ...(result.liveModelId != null ? { liveModelId: result.liveModelId } : {}),
+            ...(result.simulatedFallback ? { simulatedFallback: true } : {}),
             ...(current.coveredByPass
               ? {
                   coveredByPassId: current.coveredByPass.id,
@@ -452,21 +563,104 @@ export const useAppStore = create<AppState>()(
               : {}),
           };
 
+          // Tier passes meter against a shared token budget; direct model
+          // passes stay unlimited for the whole window.
+          const coveringTierId = current.coveredByPass?.tierId;
+          const passes = coveringTierId
+            ? state.passes.map((p) =>
+                p.id === current.coveredByPass!.id
+                  ? {
+                      ...p,
+                      tokensUsed:
+                        (p.tokensUsed ?? 0) + result.inputTokens + result.outputTokens,
+                    }
+                  : p,
+              )
+            : state.passes;
+
           set({
             balance: round4(state.balance - amount),
             transactions: [receipt, ...state.transactions],
             modelRun: { ...current, phase: "receipt", receipt },
+            passes,
           });
           toast.success(
             covered
               ? `Call covered by your ${PASS_LABELS[current.coveredByPass!.type]}`
               : `Charged ${formatMoney(amount)} — receipt ready`,
           );
+        };
+
+        const simulatedResult = () => {
+          const rolled = rollActualCost(modelRun.estimate);
+          const sim = buildTokenBreakdown(model.pricing.rateCard, rolled.amount);
+          return {
+            amountCharged: rolled.amount,
+            breakdown: sim.breakdown,
+            inputTokens: sim.inputTokens,
+            outputTokens: sim.outputTokens,
+            executionMs: modelRun.executionMs,
+            cappedOverrun: rolled.cappedOverrun,
+          };
+        };
+
+        if (model.liveModelId) {
+          // Real call through OpenRouter; the pre-rolled executionMs doubles as a
+          // minimum display time so the progress indicator never flashes.
+          const controller = new AbortController();
+          modelCallAbort = controller;
+          const startedAt = Date.now();
+          const request = requestLiveCall(model.id, modelRun.taskPrompt, controller.signal);
+          const minDelay = new Promise<void>((resolve) =>
+            setTimeout(resolve, modelRun.executionMs),
+          );
+          void Promise.allSettled([request, minDelay]).then(([outcome]) => {
+            if (modelCallAbort === controller) modelCallAbort = null;
+            if (controller.signal.aborted) return;
+
+            if (outcome.status === "fulfilled") {
+              const live = outcome.value;
+              const usage = buildRealTokenBreakdown(
+                model.pricing.rateCard,
+                live.inputTokens,
+                live.outputTokens,
+              );
+              commitReceipt({
+                amountCharged: Math.min(usage.total, modelRun.estimate.cap),
+                breakdown: usage.breakdown,
+                inputTokens: live.inputTokens,
+                outputTokens: live.outputTokens,
+                executionMs: Date.now() - startedAt,
+                cappedOverrun: usage.total > modelRun.estimate.cap,
+                responseText: live.text,
+                liveModelId: live.liveModelId,
+              });
+            } else {
+              const reason =
+                outcome.reason instanceof Error ? outcome.reason.message : "upstream_error";
+              toast.info(
+                reason === "rate_limited"
+                  ? "Free-tier rate limit reached — showing a simulated receipt"
+                  : "Live call unavailable — showing a simulated receipt",
+              );
+              commitReceipt({
+                ...simulatedResult(),
+                liveModelId: model.liveModelId,
+                simulatedFallback: true,
+              });
+            }
+          });
+          return;
+        }
+
+        modelRunTimer = setTimeout(() => {
+          commitReceipt(simulatedResult());
         }, modelRun.executionMs);
       },
 
       cancelModelCall: () => {
         clearModelRunTimer();
+        abortModelCall();
         set({ modelRun: null });
       },
 
@@ -538,6 +732,153 @@ export const useAppStore = create<AppState>()(
         return { ok: true as const };
       },
 
+      purchaseModelPassWithQris: (modelId, type, orderId) => {
+        const model = getModelById(modelId);
+        const pricing = model?.pricing.passes[type];
+        if (!model || !pricing) return { ok: false as const, reason: "unavailable" as const };
+
+        const now = Date.now();
+        const pass: OwnedPass = {
+          id: makeId("pass"),
+          modelId,
+          type,
+          price: pricing.price,
+          activatedAt: now,
+          expiresAt: now + PASS_DURATIONS_MS[type],
+        };
+        const txn: Transaction = {
+          id: makeId("txn"),
+          type: "pass_purchase",
+          createdAt: now,
+          amount: pricing.price,
+          modelId,
+          modelName: model.name,
+          passType: type,
+          midtransOrderId: orderId,
+        };
+        set((s) => ({
+          passes: [pass, ...s.passes],
+          transactions: [txn, ...s.transactions],
+        }));
+        toast.success(`${PASS_LABELS[type]} active for ${model.name}`);
+        return { ok: true as const };
+      },
+
+      purchaseTierPass: (tierSlug, type) => {
+        const tier = getTier(tierSlug);
+        const pricing = tier?.passes[type];
+        if (!tier || !pricing) return { ok: false as const, reason: "unavailable" as const };
+        if (get().balance < pricing.price) {
+          return { ok: false as const, reason: "insufficient" as const };
+        }
+
+        const now = Date.now();
+        const modelIds = tierModels(tier).map((m) => m.id);
+        const pass: OwnedPass = {
+          id: makeId("pass"),
+          tierId: tier.id,
+          tierName: tier.name,
+          modelIds,
+          tokenLimit: tier.tokenLimit,
+          tokensUsed: 0,
+          type,
+          price: pricing.price,
+          activatedAt: now,
+          expiresAt: now + PASS_DURATIONS_MS[type],
+        };
+        const txn: Transaction = {
+          id: makeId("txn"),
+          type: "pass_purchase",
+          createdAt: now,
+          amount: pricing.price,
+          tierId: tier.id,
+          tierName: tier.name,
+          passType: type,
+        };
+        set((s) => ({
+          balance: round4(s.balance - pricing.price),
+          passes: [pass, ...s.passes],
+          transactions: [txn, ...s.transactions],
+        }));
+        toast.success(`${PASS_LABELS[type]} active for the ${tier.name} tier`);
+        return { ok: true as const };
+      },
+
+      purchaseTierPassWithStellar: (tierSlug, type, txHash, amountXlm) => {
+        const tier = getTier(tierSlug);
+        const pricing = tier?.passes[type];
+        if (!tier || !pricing) return { ok: false as const, reason: "unavailable" as const };
+
+        const now = Date.now();
+        const modelIds = tierModels(tier).map((m) => m.id);
+        const pass: OwnedPass = {
+          id: makeId("pass"),
+          tierId: tier.id,
+          tierName: tier.name,
+          modelIds,
+          tokenLimit: tier.tokenLimit,
+          tokensUsed: 0,
+          type,
+          price: pricing.price,
+          activatedAt: now,
+          expiresAt: now + PASS_DURATIONS_MS[type],
+        };
+        const txn: Transaction = {
+          id: makeId("txn"),
+          type: "pass_purchase",
+          createdAt: now,
+          amount: pricing.price,
+          tierId: tier.id,
+          tierName: tier.name,
+          passType: type,
+          stellarTxHash: txHash,
+          stellarAmountXlm: amountXlm,
+        };
+        set((s) => ({
+          passes: [pass, ...s.passes],
+          transactions: [txn, ...s.transactions],
+        }));
+        toast.success(`${PASS_LABELS[type]} active for the ${tier.name} tier`);
+        return { ok: true as const };
+      },
+
+      purchaseTierPassWithQris: (tierSlug, type, orderId) => {
+        const tier = getTier(tierSlug);
+        const pricing = tier?.passes[type];
+        if (!tier || !pricing) return { ok: false as const, reason: "unavailable" as const };
+
+        const now = Date.now();
+        const modelIds = tierModels(tier).map((m) => m.id);
+        const pass: OwnedPass = {
+          id: makeId("pass"),
+          tierId: tier.id,
+          tierName: tier.name,
+          modelIds,
+          tokenLimit: tier.tokenLimit,
+          tokensUsed: 0,
+          type,
+          price: pricing.price,
+          activatedAt: now,
+          expiresAt: now + PASS_DURATIONS_MS[type],
+        };
+        const txn: Transaction = {
+          id: makeId("txn"),
+          type: "pass_purchase",
+          createdAt: now,
+          amount: pricing.price,
+          tierId: tier.id,
+          tierName: tier.name,
+          passType: type,
+          midtransOrderId: orderId,
+        };
+        set((s) => ({
+          passes: [pass, ...s.passes],
+          transactions: [txn, ...s.transactions],
+        }));
+        toast.success(`${PASS_LABELS[type]} active for the ${tier.name} tier`);
+        return { ok: true as const };
+      },
+
       createApiKey: (modelId, label) => {
         const secret = generateApiKeySecret();
         const key: ApiKey = {
@@ -592,6 +933,22 @@ export const useAppStore = create<AppState>()(
         toast.success(`Added ${formatMoneyExact(amountUsd)} via ${amountXlm} XLM (testnet)`);
       },
 
+      topUpWithQris: (amountUsd, orderId) => {
+        if (!Number.isFinite(amountUsd) || amountUsd <= 0) return;
+        const txn: Transaction = {
+          id: makeId("txn"),
+          type: "top_up",
+          createdAt: Date.now(),
+          amount: round4(amountUsd),
+          midtransOrderId: orderId,
+        };
+        set((s) => ({
+          balance: round4(s.balance + amountUsd),
+          transactions: [txn, ...s.transactions],
+        }));
+        toast.success(`Added ${formatMoneyExact(amountUsd)} via QRIS (sandbox)`);
+      },
+
       setTopUpOpen: (open) => set({ topUpOpen: open }),
 
       setBudget: (window, cap) => {
@@ -615,6 +972,7 @@ export const useAppStore = create<AppState>()(
       resetDemo: () => {
         clearRunTimer();
         clearModelRunTimer();
+        abortModelCall();
         set({
           ...buildSeedState(Date.now()),
           creatorPricing: {},

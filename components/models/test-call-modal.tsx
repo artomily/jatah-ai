@@ -1,13 +1,14 @@
 "use client";
 
 import { Check, LoaderCircle } from "lucide-react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 import { formatMoney } from "@/lib/format";
 import { useAppStore, useHydrated } from "@/lib/store/app-store";
 import type { AiModel } from "@/lib/types";
 import { CostEstimateCard } from "@/components/billing/cost-estimate-card";
 import { ReceiptCard } from "@/components/billing/receipt-card";
 import { BudgetWarningCard } from "@/components/billing/budget-warning";
+import { LiveBadge } from "@/components/models/live-badge";
 import { ModelCallIndicator } from "@/components/models/model-call-indicator";
 import { Button } from "@/components/ui/button";
 import {
@@ -54,19 +55,24 @@ export function TestCallModal({
 
   const canAfford = active ? balance >= active.estimate.cap : false;
 
+  // Enter-only animation: the div remounts per phase (key), so content swaps
+  // instantly and animates in. Exit animations via AnimatePresence mode="wait"
+  // deadlocked here (motion v12 + React 19) leaving stale phase content stuck.
   const variants = reducedMotion
-    ? { initial: {}, animate: {}, exit: {} }
+    ? { initial: {}, animate: {} }
     : {
         initial: { opacity: 0, y: 6 },
         animate: { opacity: 1, y: 0 },
-        exit: { opacity: 0, y: -6 },
       };
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{active ? PHASE_TITLE[active.phase] : "Test call"}</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            {active ? PHASE_TITLE[active.phase] : "Test call"}
+            <LiveBadge live={Boolean(model.liveModelId)} />
+          </DialogTitle>
           <DialogDescription>
             {active?.phase === "receipt"
               ? `${model.name} finished — here's exactly what it cost.`
@@ -74,17 +80,15 @@ export function TestCallModal({
           </DialogDescription>
         </DialogHeader>
 
-        <AnimatePresence mode="wait" initial={false}>
-          {!hydrated || !active ? (
-            <Skeleton key="skeleton" className="h-40 w-full" />
-          ) : (
-            <motion.div
-              key={active.phase}
-              initial={variants.initial}
-              animate={variants.animate}
-              exit={variants.exit}
-              transition={{ duration: 0.18, ease: "easeOut" }}
-            >
+        {!hydrated || !active ? (
+          <Skeleton key="skeleton" className="h-40 w-full" />
+        ) : (
+          <motion.div
+            key={active.phase}
+            initial={variants.initial}
+            animate={variants.animate}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+          >
               {active.phase === "estimating" ? (
                 <div className="flex flex-col items-center gap-3 py-8 text-center text-sm text-muted-foreground">
                   <LoaderCircle className="size-5 animate-spin text-brand" aria-hidden />
@@ -117,7 +121,10 @@ export function TestCallModal({
                   />
                 </div>
               ) : active.phase === "running" ? (
-                <ModelCallIndicator executionMs={active.executionMs} />
+                <ModelCallIndicator
+                  executionMs={active.executionMs}
+                  live={Boolean(model.liveModelId)}
+                />
               ) : (
                 active.receipt && (
                   <div className="flex flex-col gap-3">
@@ -129,9 +136,8 @@ export function TestCallModal({
                   </div>
                 )
               )}
-            </motion.div>
-          )}
-        </AnimatePresence>
+          </motion.div>
+        )}
 
         <DialogFooter>
           {!active ? null : active.phase === "estimating" || active.phase === "running" ? null : active.phase ===

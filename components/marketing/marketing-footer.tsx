@@ -11,10 +11,10 @@ const COLUMNS = [
     ],
   },
   {
-    heading: "Company",
+    heading: "Learn",
     links: [
-      { href: "/", label: "About" },
-      { href: "/", label: "Trust & safety" },
+      { href: "/#how-it-works", label: "How it works" },
+      { href: "/#faq", label: "FAQ" },
     ],
   },
 ];
@@ -51,8 +51,8 @@ export function MarketingFooter() {
       </div>
       <div className="border-t px-4 py-6 sm:px-8">
         <p className="mx-auto max-w-6xl text-xs text-muted-foreground">
-          © {new Date().getFullYear()} Jatah Ai. Payments settle via x402. This is a demo
-          product — no real charges occur.
+          © {new Date().getFullYear()} Jatah Ai. Demo product — payments run on the Stellar
+          testnet and the Midtrans sandbox only. No real charges occur.
         </p>
       </div>
     </footer>

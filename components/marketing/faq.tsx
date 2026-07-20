@@ -11,7 +11,7 @@ const FAQS = [
   },
   {
     q: "How do I pay?",
-    a: "From a pre-funded demo balance, or a Stellar testnet wallet. Either way, no real charges — this is a demo.",
+    a: "From a pre-funded demo balance, a Stellar testnet wallet, or QRIS / e-wallet via the Midtrans sandbox. Either way, no real charges — this is a demo.",
   },
   {
     q: "What's the hard cap?",
@@ -19,7 +19,7 @@ const FAQS = [
   },
   {
     q: "Is this real money?",
-    a: "No. Jatah Ai is a demo product — payments settle via x402 and the Stellar testnet, not real currency.",
+    a: "No. Jatah Ai is a demo — crypto payments run on the Stellar testnet and are verified on-chain, and fiat payments run in the Midtrans sandbox. No real currency moves.",
   },
   {
     q: "Do passes cover every model?",

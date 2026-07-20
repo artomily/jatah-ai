@@ -1,4 +1,4 @@
-import { Asset, BASE_FEE, Horizon, Operation, TransactionBuilder } from "@stellar/stellar-sdk";
+import { Asset, BASE_FEE, Horizon, Memo, Operation, TransactionBuilder } from "@stellar/stellar-sdk";
 import {
   STELLAR_FRIENDBOT_URL,
   STELLAR_HORIZON_URL,
@@ -29,28 +29,32 @@ export async function fundTestnetAccount(address: string): Promise<void> {
  * Sends a one-off native-XLM payment straight from the connected wallet to the
  * treasury — used for time-pass purchases, which happen rarely and at a fixed
  * price, instead of the top-up contract's running balance. Returns the
- * transaction hash once the ledger confirms it.
+ * transaction hash once the ledger confirms it. `memoText` (≤ 28 bytes) ties
+ * the payment to an order id so the server can verify it before granting.
  */
-export async function payTreasuryDirect(address: string, amountXlm: number): Promise<string> {
+export async function payTreasuryDirect(
+  address: string,
+  amountXlm: number,
+  memoText?: string,
+): Promise<string> {
   const account = await horizonServer.loadAccount(address).catch((err) => {
     const status = (err as { response?: { status?: number } })?.response?.status;
     if (status === 404) throw new StellarAccountNotFoundError(address);
     throw err;
   });
 
-  const tx = new TransactionBuilder(account, {
+  const builder = new TransactionBuilder(account, {
     fee: BASE_FEE,
     networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
-  })
-    .addOperation(
-      Operation.payment({
-        destination: STELLAR_TREASURY_ADDRESS,
-        asset: Asset.native(),
-        amount: amountXlm.toFixed(7),
-      }),
-    )
-    .setTimeout(60)
-    .build();
+  }).addOperation(
+    Operation.payment({
+      destination: STELLAR_TREASURY_ADDRESS,
+      asset: Asset.native(),
+      amount: amountXlm.toFixed(7),
+    }),
+  );
+  if (memoText) builder.addMemo(Memo.text(memoText));
+  const tx = builder.setTimeout(60).build();
 
   const { signedTxXdr } = await StellarWalletsKit.signTransaction(tx.toXDR(), {
     networkPassphrase: STELLAR_NETWORK_PASSPHRASE,

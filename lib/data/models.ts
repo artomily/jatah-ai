@@ -35,6 +35,7 @@ export const MODELS: AiModel[] = [
       },
     },
     featured: true,
+    liveModelId: "openai/gpt-oss-20b:free",
   },
   {
     id: "model_gpt-5-mini",
@@ -56,6 +57,7 @@ export const MODELS: AiModel[] = [
       rateCard: { inputPerMillion: 0.6, outputPerMillion: 2.4 },
       passes: {},
     },
+    liveModelId: "openai/gpt-oss-20b:free",
   },
   {
     id: "model_claude-opus-4-8",
@@ -158,6 +160,7 @@ export const MODELS: AiModel[] = [
       },
     },
     featured: true,
+    liveModelId: "google/gemma-4-31b-it:free",
   },
   {
     id: "model_llama-4-maverick",
@@ -181,6 +184,7 @@ export const MODELS: AiModel[] = [
         pass_30d: { price: 14 },
       },
     },
+    liveModelId: "meta-llama/llama-3.3-70b-instruct:free",
   },
   {
     id: "model_mistral-large-3",

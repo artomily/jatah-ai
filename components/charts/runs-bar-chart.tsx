@@ -25,7 +25,7 @@ export function RunsBarChart({ data }: { data: DayBucket[] }) {
         <CartesianGrid vertical={false} strokeDasharray="3 3" />
         <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} minTickGap={24} />
         <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
-        <Bar dataKey="runs" fill="var(--chart-2)" radius={4} />
+        <Bar dataKey="runs" fill="var(--chart-2)" radius={4} isAnimationActive={false} />
       </BarChart>
     </ChartContainer>
   );

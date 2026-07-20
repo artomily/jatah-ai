@@ -17,7 +17,11 @@ function Icon({ txn }: { txn: Transaction }) {
 }
 
 function title(txn: Transaction): string {
-  if (txn.type === "top_up") return txn.stellarTxHash ? "Wallet top-up · Stellar" : "Wallet top-up";
+  if (txn.type === "top_up") {
+    if (txn.stellarTxHash) return "Wallet top-up · Stellar";
+    if (txn.midtransOrderId) return "Wallet top-up · QRIS";
+    return "Wallet top-up";
+  }
   if (txn.type === "pass_purchase") {
     const name = txn.agentName ?? txn.modelName ?? "";
     return `${txn.passType ? PASS_LABELS[txn.passType] : "Pass"} · ${name}`;
@@ -59,6 +63,11 @@ export function TransactionRow({ txn }: { txn: Transaction }) {
           >
             {txn.stellarAmountXlm} XLM <ExternalLink className="size-2.5" aria-hidden />
           </a>
+        )}
+        {txn.midtransOrderId && (
+          <p className="truncate text-xs text-muted-foreground">
+            QRIS sandbox · {txn.midtransOrderId}
+          </p>
         )}
       </div>
       <span className="shrink-0 text-xs text-muted-foreground tabular-nums">

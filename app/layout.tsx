@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     template: "%s · Jatah Ai",
   },
   description:
-    "Pay by time, pay by usage, settled instantly with x402. Pay per request with a hard cap, or unlock time passes — 24 hours, 7 days, 30 days. Humans pay by time. Machines pay by usage.",
+    "Pay by time, pay by usage — settled instantly. Pay per request with a hard cap, or unlock time passes — 24 hours, 7 days, 30 days. Humans pay by time. Machines pay by usage.",
 };
 
 export default function RootLayout({

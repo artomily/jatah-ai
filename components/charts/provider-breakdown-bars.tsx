@@ -50,7 +50,7 @@ export function ProviderBreakdownBars({
           cursor={false}
           content={<ChartTooltipContent formatter={(value) => formatMoney(Number(value))} hideLabel />}
         />
-        <Bar dataKey="spend" radius={4}>
+        <Bar dataKey="spend" radius={4} isAnimationActive={false}>
           {chartData.map((d) => (
             <Cell key={d.label} fill={d.fill} />
           ))}

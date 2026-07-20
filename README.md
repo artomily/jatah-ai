@@ -1,6 +1,6 @@
 # Jatah Ai
 
-**The payment layer for AI agents — pay by time, pay by usage, settled instantly with x402.**
+**The payment layer for AI agents — pay by time, pay by usage, settled instantly on Stellar (testnet demo).**
 
 > Stop subscribing. Start paying the way you actually use AI.
 > Humans pay by time. Machines pay by usage.
@@ -46,7 +46,7 @@ flowchart LR
         direction TB
         S1["Priced per task"]
         S2["Estimate + hard cap shown upfront"]
-        S3["Settles instantly via x402"]
+        S3["Settles instantly on Stellar"]
     end
 
     Problem -. adaptive billing .-> Solution
@@ -63,7 +63,7 @@ sequenceDiagram
     actor Buyer
     participant UI as Jatah Ai
     participant Store as Billing store
-    participant x402 as x402 settlement
+    participant Stellar as Stellar settlement
 
     Buyer->>UI: Pick an agent or model
     UI->>Store: Request estimate
@@ -77,8 +77,8 @@ sequenceDiagram
     Buyer->>UI: Approve
     UI->>Store: Run task
     Store->>Store: Roll actual cost (≤ cap)
-    Store->>x402: Settle charge
-    x402-->>Store: Confirmed
+    Store->>Stellar: Settle charge
+    Stellar-->>Store: Confirmed
     Store-->>UI: Itemized receipt
     UI-->>Buyer: Receipt (per-provider breakdown)
 ```
@@ -92,18 +92,18 @@ the buyer picks whichever fits the job, per task.
 flowchart TD
     Start(["Pick an agent or model"]) --> Choice{"How do you want to pay?"}
 
-    Choice -->|"Occasional / unpredictable"| Usage["<b>x402 Pay-Per-Request</b><br/>Estimate + hard max shown upfront<br/>Approve once → settles instantly<br/>Itemized receipt per run"]
+    Choice -->|"Occasional / unpredictable"| Usage["<b>Pay-Per-Request</b><br/>Estimate + hard max shown upfront<br/>Approve once → settles instantly<br/>Itemized receipt per run"]
     Choice -->|"Heavy, concentrated use"| Pass["<b>Time Pass</b><br/>Flat price, unlimited runs<br/>24 Hours · 7 Days · 30 Days<br/>Built for sprints & deadlines"]
 
     Usage --> Receipt["Per-run itemized receipt"]
     Pass --> Window["Unlimited runs until the pass expires"]
 ```
 
-| | x402 Pay-Per-Request | Time Pass (24h / 7d / 30d) |
+| | Pay-Per-Request | Time Pass (24h / 7d / 30d) |
 |---|---|---|
 | Pricing | Estimated range + hard maximum per run | One flat price for the whole window |
 | Best for | Unpredictable, occasional runs | Hackathons, sprints, deadline pushes |
-| Settlement | Instantly via x402, per run | Once, at purchase |
+| Settlement | Instantly, per run | Once, at purchase |
 | Receipt | Itemized per-provider breakdown | Runs inside the window show as covered, $0 |
 
 ## Why Stellar
@@ -143,7 +143,6 @@ wallet — as the foundation the rest of the settlement flow is modeled on.
 - **Tailwind CSS v4** + **shadcn/ui** (Radix primitives) — component layer
 - **[Recharts](https://recharts.org)** — analytics & spend charts
 - **[Motion](https://motion.dev)** — page and interaction animation
-- **x402** — the settlement protocol every charge in this demo models itself on
 - **[Stellar SDK](https://developers.stellar.org) + Soroban** — on-chain wallet
   top-ups via a deployed testnet contract
 - **[`@creit.tech/stellar-wallets-kit`](https://github.com/Creit-Tech/Stellar-Wallets-Kit)**
@@ -216,11 +215,29 @@ lib/
 
 ```bash
 npm install
+cp .env.example .env.local   # then fill in the keys below
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). The app runs entirely on seeded,
-client-side state (Zustand + `localStorage`) — no backend or database required.
+Open [http://localhost:3000](http://localhost:3000). Billing state is seeded and
+client-side (Zustand + `localStorage`); a thin set of route handlers under
+`app/api/` powers the real parts of the demo:
+
+| Route | Purpose | Needs |
+|---|---|---|
+| `POST /api/model-call` | Live model output via OpenRouter free-tier models | `OPENROUTER_API_KEY` |
+| `POST /api/stellar/verify` | Verifies pass payments on Horizon testnet (recipient, amount, memo) before the pass is granted | — |
+| `POST /api/midtrans/token` · `GET /api/midtrans/status` · `POST /api/midtrans/webhook` | QRIS / e-wallet checkout through the Midtrans **sandbox** | `MIDTRANS_SERVER_KEY`, `NEXT_PUBLIC_MIDTRANS_CLIENT_KEY` |
+
+All keys are free: [openrouter.ai](https://openrouter.ai) (free-tier models,
+50 req/day) and [dashboard.sandbox.midtrans.com](https://dashboard.sandbox.midtrans.com)
+(no KYB for sandbox; simulate QRIS scans at
+[simulator.sandbox.midtrans.com](https://simulator.sandbox.midtrans.com)). Missing
+keys degrade gracefully — live models fall back to simulated receipts, and the
+QRIS tab explains it isn't configured.
+
+Known gap: the Soroban **top-up** contract path is not yet server-verified (the
+direct pass payments are) — it still credits the demo balance client-side.
 
 ```bash
 npm run build   # production build

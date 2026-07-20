@@ -10,6 +10,7 @@ import {
 import { PASS_DURATIONS_MS, round4 } from "@/lib/format";
 import { getAgentById } from "@/lib/data/agents";
 import { getModelById } from "@/lib/data/models";
+import { getTier, tierModels } from "@/lib/data/tiers";
 import type {
   ApiKey,
   Budgets,
@@ -178,7 +179,23 @@ export function buildSeedState(now: number): SeedState {
     activatedAt: now - 1 * DAY,
     expiresAt: now - 1 * DAY + PASS_DURATIONS_MS.pass_7d,
   };
-  const passes = [scoutPass, inboxPass, refactorPass, sonnetPass];
+  // One active tier bundle — covers models that otherwise have no pass of
+  // their own (GPT-5 Mini) or only a shorter one (Claude Haiku 4.5), so
+  // usage on both starts landing free the moment this pass activates.
+  const basicTier = getTier("basic")!;
+  const basicTierPass: OwnedPass = {
+    id: makeId("pass", rng),
+    tierId: basicTier.id,
+    tierName: basicTier.name,
+    modelIds: tierModels(basicTier).map((m) => m.id),
+    tokenLimit: basicTier.tokenLimit,
+    tokensUsed: 0,
+    type: "pass_7d",
+    price: basicTier.passes.pass_7d!.price,
+    activatedAt: now - 3 * DAY,
+    expiresAt: now - 3 * DAY + PASS_DURATIONS_MS.pass_7d,
+  };
+  const passes = [scoutPass, inboxPass, refactorPass, sonnetPass, basicTierPass];
 
   for (const pass of passes) {
     const agent = pass.agentId ? getAgentById(pass.agentId) : undefined;
@@ -192,6 +209,8 @@ export function buildSeedState(now: number): SeedState {
       agentName: agent?.name,
       modelId: pass.modelId,
       modelName: model?.name,
+      tierId: pass.tierId,
+      tierName: pass.tierName,
       passType: pass.type as PassType,
     });
   }
@@ -261,10 +280,18 @@ export function buildSeedState(now: number): SeedState {
     let createdAt = now - d * DAY - (24 - hour) * HOUR + Math.floor(rng() * 50) * 60 * 1000;
     if (d === 0) createdAt = now - (1 + Math.floor(rng() * 5)) * HOUR;
 
-    const coveringPass = passes.find(
-      (p) =>
-        p.modelId === modelId && createdAt >= p.activatedAt && createdAt <= p.expiresAt,
-    );
+    const coveringPass =
+      passes.find(
+        (p) =>
+          p.modelId === modelId && createdAt >= p.activatedAt && createdAt <= p.expiresAt,
+      ) ??
+      passes.find(
+        (p) =>
+          p.tierId != null &&
+          p.modelIds?.includes(modelId) &&
+          createdAt >= p.activatedAt &&
+          createdAt <= p.expiresAt,
+      );
 
     const { amount, cappedOverrun } = rollActualCost(model.pricing.perRequest, rng);
     const referenceCost = round4(
@@ -276,6 +303,9 @@ export function buildSeedState(now: number): SeedState {
       coveringPass ? referenceCost : amount,
       rng,
     );
+    if (coveringPass?.tierId) {
+      coveringPass.tokensUsed = (coveringPass.tokensUsed ?? 0) + inputTokens + outputTokens;
+    }
 
     const prompts = MODEL_SAMPLE_PROMPTS[modelId] ?? ["API call"];
     transactions.push({

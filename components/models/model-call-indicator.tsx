@@ -7,8 +7,14 @@ import { cn } from "@/lib/utils";
 
 const STEPS = ["Sending request", "Generating response"];
 
-/** Progress + step ticker while the (simulated) model call executes. */
-export function ModelCallIndicator({ executionMs }: { executionMs: number }) {
+/** Progress + step ticker while the model call executes — live or simulated. */
+export function ModelCallIndicator({
+  executionMs,
+  live = false,
+}: {
+  executionMs: number;
+  live?: boolean;
+}) {
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
@@ -55,7 +61,9 @@ export function ModelCallIndicator({ executionMs }: { executionMs: number }) {
         ))}
       </ul>
       <p className="text-xs text-muted-foreground">
-        Metering tokens as they stream — the receipt itemizes input vs. output below.
+        {live
+          ? "Calling the live model — the receipt itemizes real input vs. output tokens."
+          : "Simulating this call — the receipt itemizes input vs. output the same way."}
       </p>
     </div>
   );

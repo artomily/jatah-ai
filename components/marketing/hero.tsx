@@ -4,33 +4,35 @@ import Link from "next/link";
 import { useRef, useState } from "react";
 import { ArrowRight, Zap } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
+import { getModel } from "@/lib/data/models";
+import { formatMoney } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 
 /**
- * Decorative ecosystem art — illustrative model pricing, not the live catalog.
- * Each node gets its own shelf height and hub entry point, deliberately
- * un-mirrored, so the four cables read as distinct routes instead of a
- * symmetric, repeating pattern.
+ * Ecosystem art — node position/shape is decorative, but name and per-request
+ * price are resolved live from `lib/data/models.ts` so this can never drift
+ * from the real catalog. Each node gets its own shelf height and hub entry
+ * point, deliberately un-mirrored, so the four cables read as distinct routes
+ * instead of a symmetric, repeating pattern.
  */
-const NODES: Array<{ name: string; price: string; x: number; y: number; shelfY: number; targetX: number }> = [
-  { name: "Claude 4", price: "$0.021", x: 13, y: 12, shelfY: 29, targetX: 39 },
-  { name: "GPT-5", price: "$0.018", x: 33, y: 5, shelfY: 47, targetX: 44 },
-  { name: "Gemini 2.5 Pro", price: "$0.014", x: 67, y: 5, shelfY: 37, targetX: 59 },
-  { name: "DeepSeek R1", price: "$0.006", x: 87, y: 12, shelfY: 43, targetX: 63 },
+const NODE_LAYOUT: Array<{ slug: string; x: number; y: number; shelfY: number; targetX: number }> = [
+  { slug: "claude-sonnet-5", x: 13, y: 12, shelfY: 29, targetX: 39 },
+  { slug: "gpt-5", x: 33, y: 5, shelfY: 47, targetX: 44 },
+  { slug: "gemini-2-5-pro", x: 67, y: 5, shelfY: 37, targetX: 59 },
+  { slug: "llama-4-maverick", x: 87, y: 12, shelfY: 43, targetX: 63 },
 ];
+
+const NODES = NODE_LAYOUT.flatMap((layout) => {
+  const model = getModel(layout.slug);
+  if (!model) return [];
+  return [{ ...layout, name: model.name, price: `from ${formatMoney(model.pricing.perRequest.estMin)}` }];
+});
+
+const HERO_SONNET_5 = getModel("claude-sonnet-5");
 
 const HUB = { x: 50, y: 50 };
 
-const PROVIDERS = [
-  "OpenAI",
-  "Anthropic",
-  "Google",
-  "xAI",
-  "Meta",
-  "DeepSeek",
-  "Mistral",
-  "Alibaba",
-];
+const PROVIDERS = ["OpenAI", "Anthropic", "Google", "Meta", "Mistral"];
 
 const STARS = [
   { x: 14, y: 24, size: 2, delay: 0 },
@@ -113,7 +115,7 @@ export function Hero() {
         };
 
   return (
-    <section id="models" className="w-full scroll-mt-20 px-4 pt-4 sm:px-6 sm:pt-6 lg:px-8">
+    <section className="w-full px-4 pt-4 sm:px-6 sm:pt-6 lg:px-8">
       <div
         ref={containerRef}
         onMouseMove={handleMouseMove}
@@ -286,12 +288,22 @@ export function Hero() {
           <GlassCard className="top-36 left-10 w-52" delay={0.9} float={11} rotate={-3}>
             <p className="text-xs font-medium text-white/50">Cost Estimate</p>
             <div className="mt-2 flex items-baseline justify-between">
-              <span className="text-xs text-white/50">Claude 4</span>
-              <span className="text-lg font-semibold text-white">$0.024</span>
+              <span className="text-xs text-white/50">Claude Sonnet 5</span>
+              <span className="text-lg font-semibold text-white">
+                {HERO_SONNET_5
+                  ? formatMoney(
+                      (HERO_SONNET_5.pricing.perRequest.estMin +
+                        HERO_SONNET_5.pricing.perRequest.estMax) /
+                        2,
+                    )
+                  : "--"}
+              </span>
             </div>
             <div className="mt-1.5 flex items-baseline justify-between border-t border-white/10 pt-1.5">
               <span className="text-xs text-white/40">Maximum</span>
-              <span className="text-sm font-medium tabular-nums text-white/70">$0.030</span>
+              <span className="text-sm font-medium tabular-nums text-white/70">
+                {HERO_SONNET_5 ? formatMoney(HERO_SONNET_5.pricing.perRequest.cap) : "--"}
+              </span>
             </div>
           </GlassCard>
 
@@ -404,7 +416,7 @@ export function Hero() {
 
       <div className="flex w-full flex-col items-center gap-6 py-14">
         <p className="text-xs font-medium tracking-wide text-muted-foreground/60 uppercase">
-          Compatible With
+          Models on the platform
         </p>
         <div className="flex w-full flex-wrap items-center justify-center gap-x-12 gap-y-3 text-sm font-medium text-muted-foreground/70">
           {PROVIDERS.map((provider) => (

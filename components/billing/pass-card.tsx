@@ -10,8 +10,14 @@ import { cn } from "@/lib/utils";
 export function PassCard({ pass, expired = false }: { pass: OwnedPass; expired?: boolean }) {
   const agent = pass.agentId ? getAgentById(pass.agentId) : undefined;
   const model = pass.modelId ? getModelById(pass.modelId) : undefined;
-  const href = agent ? `/agents/${agent.slug}` : model ? `/models/${model.slug}` : null;
-  const name = agent?.name ?? model?.name;
+  const href = pass.tierId
+    ? "/tiers"
+    : agent
+      ? `/agents/${agent.slug}`
+      : model
+        ? `/models/${model.slug}`
+        : null;
+  const name = pass.tierId ? `${pass.tierName} tier` : (agent?.name ?? model?.name);
 
   return (
     <div

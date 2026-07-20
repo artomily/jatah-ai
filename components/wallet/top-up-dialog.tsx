@@ -16,6 +16,7 @@ import { StellarAccountNotFoundError, fundTestnetAccount } from "@/lib/stellar/p
 import { topUpViaContract } from "@/lib/stellar/soroban";
 import { useStellarWallet } from "@/hooks/use-stellar-wallet";
 import { useAppStore } from "@/lib/store/app-store";
+import { QrisPay } from "@/components/wallet/qris-pay";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -38,6 +39,7 @@ export function TopUpDialog() {
   const setOpen = useAppStore((s) => s.setTopUpOpen);
   const topUp = useAppStore((s) => s.topUp);
   const topUpWithStellar = useAppStore((s) => s.topUpWithStellar);
+  const topUpWithQris = useAppStore((s) => s.topUpWithQris);
   const [selected, setSelected] = useState<number | "custom">(10);
   const [custom, setCustom] = useState("");
 
@@ -63,7 +65,8 @@ export function TopUpDialog() {
         <Tabs defaultValue="demo">
           <TabsList className="w-full">
             <TabsTrigger value="demo">Demo funds</TabsTrigger>
-            <TabsTrigger value="stellar">Stellar (Testnet)</TabsTrigger>
+            <TabsTrigger value="stellar">Stellar</TabsTrigger>
+            <TabsTrigger value="qris">QRIS</TabsTrigger>
           </TabsList>
 
           <TabsContent value="demo" className="flex flex-col gap-3 pt-3">
@@ -127,6 +130,37 @@ export function TopUpDialog() {
               }}
               onCancel={() => handleClose(false)}
             />
+          </TabsContent>
+
+          <TabsContent value="qris" className="flex flex-col gap-3 pt-3">
+            <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Top-up amount">
+              {PRESETS.map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected === preset}
+                  onClick={() => setSelected(preset)}
+                  className={cn(
+                    "flex h-11 items-center justify-center rounded-lg border text-sm font-medium tabular-nums transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    selected === preset ? "border-brand bg-brand-soft" : "hover:bg-muted/60",
+                  )}
+                >
+                  {formatMoneyExact(preset)}
+                </button>
+              ))}
+            </div>
+            {valid && (
+              <QrisPay
+                amountUsd={amount}
+                order={{ purpose: "top_up", amountUsd: amount }}
+                onPaid={(orderId) => {
+                  topUpWithQris(amount, orderId);
+                  handleClose(false);
+                }}
+                onCancel={() => handleClose(false)}
+              />
+            )}
           </TabsContent>
         </Tabs>
       </DialogContent>

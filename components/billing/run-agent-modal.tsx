@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, LoaderCircle } from "lucide-react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 import { formatMoney } from "@/lib/format";
 import { useAppStore, useHydrated } from "@/lib/store/app-store";
 import type { Agent } from "@/lib/types";
@@ -54,12 +54,14 @@ export function RunAgentModal({
 
   const canAfford = active ? balance >= active.estimate.cap : false;
 
+  // Enter-only animation: the div remounts per phase (key), so content swaps
+  // instantly and animates in. Exit animations via AnimatePresence mode="wait"
+  // deadlocked here (motion v12 + React 19) leaving stale phase content stuck.
   const variants = reducedMotion
-    ? { initial: {}, animate: {}, exit: {} }
+    ? { initial: {}, animate: {} }
     : {
         initial: { opacity: 0, y: 6 },
         animate: { opacity: 1, y: 0 },
-        exit: { opacity: 0, y: -6 },
       };
 
   return (
@@ -74,17 +76,15 @@ export function RunAgentModal({
           </DialogDescription>
         </DialogHeader>
 
-        <AnimatePresence mode="wait" initial={false}>
-          {!hydrated || !active ? (
-            <Skeleton key="skeleton" className="h-40 w-full" />
-          ) : (
-            <motion.div
-              key={active.phase}
-              initial={variants.initial}
-              animate={variants.animate}
-              exit={variants.exit}
-              transition={{ duration: 0.18, ease: "easeOut" }}
-            >
+        {!hydrated || !active ? (
+          <Skeleton key="skeleton" className="h-40 w-full" />
+        ) : (
+          <motion.div
+            key={active.phase}
+            initial={variants.initial}
+            animate={variants.animate}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+          >
               {active.phase === "estimating" ? (
                 <div className="flex flex-col items-center gap-3 py-8 text-center text-sm text-muted-foreground">
                   <LoaderCircle className="size-5 animate-spin text-brand" aria-hidden />
@@ -132,9 +132,8 @@ export function RunAgentModal({
                   </div>
                 )
               )}
-            </motion.div>
-          )}
-        </AnimatePresence>
+          </motion.div>
+        )}
 
         <DialogFooter>
           {!active ? null : active.phase === "estimating" || active.phase === "running" ? null : active.phase ===

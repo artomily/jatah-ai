@@ -9,7 +9,7 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
         <Logo href="/dashboard" className="px-2.5" />
         <SidebarNav />
         <p className="px-2.5 text-xs leading-relaxed text-muted-foreground/70">
-          Payments settle via x402.
+          Stellar testnet &amp; QRIS sandbox.
           <br />
           Demo — no real charges.
         </p>

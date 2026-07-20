@@ -6,6 +6,7 @@ import { PASS_LABELS, formatMoney, formatMoneyExact } from "@/lib/format";
 import { usdToXlm } from "@/lib/stellar/config";
 import { useAppStore, useHydrated } from "@/lib/store/app-store";
 import type { AiModel, PassType } from "@/lib/types";
+import { QrisPay } from "@/components/wallet/qris-pay";
 import { StellarDirectPay } from "@/components/wallet/stellar-direct-pay";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,6 +36,7 @@ export function ModelPassPurchaseDialog({
   const balance = useAppStore((s) => s.balance);
   const purchaseModelPass = useAppStore((s) => s.purchaseModelPass);
   const purchaseModelPassWithStellar = useAppStore((s) => s.purchaseModelPassWithStellar);
+  const purchaseModelPassWithQris = useAppStore((s) => s.purchaseModelPassWithQris);
   const setTopUpOpen = useAppStore((s) => s.setTopUpOpen);
   const passEntries = Object.entries(model.pricing.passes) as Array<
     [PassType, { price: number }]
@@ -115,8 +117,9 @@ export function ModelPassPurchaseDialog({
 
             <Tabs defaultValue="balance">
               <TabsList className="w-full">
-                <TabsTrigger value="balance">Pay from balance</TabsTrigger>
-                <TabsTrigger value="stellar">Stellar wallet</TabsTrigger>
+                <TabsTrigger value="balance">Balance</TabsTrigger>
+                <TabsTrigger value="stellar">Stellar</TabsTrigger>
+                <TabsTrigger value="qris">QRIS</TabsTrigger>
               </TabsList>
 
               <TabsContent value="balance" className="flex flex-col gap-3 pt-3">
@@ -167,6 +170,28 @@ export function ModelPassPurchaseDialog({
                         selectedEntry[0],
                         hash,
                         usdToXlm(selectedEntry[1].price),
+                      );
+                      if (res.ok) setJustBought(selectedEntry[0]);
+                    }}
+                    onCancel={() => handleClose(false)}
+                  />
+                )}
+              </TabsContent>
+
+              <TabsContent value="qris" className="pt-3">
+                {selectedEntry && (
+                  <QrisPay
+                    amountUsd={selectedEntry[1].price}
+                    order={{
+                      purpose: "model_pass",
+                      modelId: model.id,
+                      passType: selectedEntry[0],
+                    }}
+                    onPaid={(orderId) => {
+                      const res = purchaseModelPassWithQris(
+                        model.id,
+                        selectedEntry[0],
+                        orderId,
                       );
                       if (res.ok) setJustBought(selectedEntry[0]);
                     }}

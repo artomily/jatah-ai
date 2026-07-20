@@ -14,10 +14,23 @@ import { useStellarWallet } from "@/hooks/use-stellar-wallet";
 import { Button } from "@/components/ui/button";
 import { DialogFooter } from "@/components/ui/dialog";
 
+const ORDER_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
+
+/** Order id doubling as the payment's text memo — must stay ≤ 28 bytes. */
+function makeOrderId(): string {
+  let salt = "";
+  for (let i = 0; i < 8; i++) {
+    salt += ORDER_ALPHABET[Math.floor(Math.random() * ORDER_ALPHABET.length)];
+  }
+  return `jatah:${salt}`;
+}
+
 /**
  * One-off native-XLM payment straight from a connected Stellar wallet to the
  * treasury, for a fixed price — used for time-pass purchases instead of the
- * running top-up balance (see `payTreasuryDirect`).
+ * running top-up balance (see `payTreasuryDirect`). The payment carries the
+ * order id as a text memo and only counts once `/api/stellar/verify` confirms
+ * it on-chain.
  */
 export function StellarDirectPay({
   amountUsd,
@@ -32,6 +45,7 @@ export function StellarDirectPay({
 }) {
   const { address, ready, connecting, connect } = useStellarWallet();
   const [paying, setPaying] = useState(false);
+  const [verifying, setVerifying] = useState(false);
   const [notFunded, setNotFunded] = useState(false);
   const [funding, setFunding] = useState(false);
 
@@ -40,10 +54,23 @@ export function StellarDirectPay({
     setPaying(true);
     setNotFunded(false);
     try {
-      const hash = await payTreasuryDirect(address, amountXlm);
+      const orderId = makeOrderId();
+      const hash = await payTreasuryDirect(address, amountXlm, orderId);
+
+      setVerifying(true);
+      const res = await fetch("/api/stellar/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ txHash: hash, amountUsd, orderId }),
+      });
+      const verdict = (await res.json().catch(() => null)) as { ok?: boolean } | null;
+      if (!res.ok || !verdict?.ok) {
+        throw new Error("Payment could not be verified on-chain — the pass was not granted.");
+      }
+
       toast.success(
         <span className="flex items-center gap-1">
-          Payment confirmed
+          Payment verified on-chain
           <a
             href={stellarExplorerTxUrl(hash)}
             target="_blank"
@@ -63,6 +90,7 @@ export function StellarDirectPay({
       }
     } finally {
       setPaying(false);
+      setVerifying(false);
     }
   };
 
@@ -128,7 +156,7 @@ export function StellarDirectPay({
           Cancel
         </Button>
         <Button onClick={pay} disabled={paying}>
-          {paying ? "Confirming…" : `Pay ${formatXlm(amountXlm)}`}
+          {verifying ? "Verifying on-chain…" : paying ? "Confirming…" : `Pay ${formatXlm(amountXlm)}`}
         </Button>
       </DialogFooter>
     </div>

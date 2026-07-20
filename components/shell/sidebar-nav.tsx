@@ -9,6 +9,7 @@ import {
   Gauge,
   KeyRound,
   LayoutDashboard,
+  Layers,
   ReceiptText,
   Wallet,
   type LucideIcon,
@@ -25,12 +26,15 @@ interface NavItem {
 const SECTIONS: Array<{ label: string; items: NavItem[] }> = [
   {
     label: "Browse",
-    items: [{ href: "/models", label: "Models", icon: Cpu }],
+    items: [
+      { href: "/models", label: "Models", icon: Cpu },
+      { href: "/tiers", label: "Tier Passes", icon: Layers },
+    ],
   },
   {
     label: "Your account",
     items: [
-      { href: "/", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { href: "/wallet", label: "Wallet", icon: Wallet },
       { href: "/transactions", label: "Transactions", icon: ReceiptText },
       { href: "/analytics", label: "Analytics", icon: ChartNoAxesColumn },

@@ -52,6 +52,7 @@ export function CategoryDonut({
           innerRadius={55}
           outerRadius={90}
           strokeWidth={2}
+          isAnimationActive={false}
         >
           {data.map((d, i) => (
             <Cell key={d.category} fill={COLORS[i % COLORS.length]} />

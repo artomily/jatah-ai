@@ -116,7 +116,7 @@ export function CreatorView() {
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Payouts settle via x402 — simulated in this demo, no real funds move.
+        Payouts are simulated in this demo — no real funds move.
       </p>
     </div>
   );

@@ -8,9 +8,9 @@ import { Button } from "@/components/ui/button";
 
 const LINKS = [
   { href: "/", label: "Home" },
-  { href: "/#models", label: "Models" },
+  { href: "/models", label: "Models" },
   { href: "/#pricing", label: "Pricing" },
-  { href: "/#how-it-works", label: "Developers" },
+  { href: "/#how-it-works", label: "How it works" },
   { href: "/#faq", label: "FAQ" },
 ];
 
@@ -63,9 +63,6 @@ export function MarketingNav() {
           ))}
         </nav>
         <div className="ml-auto hidden items-center gap-2 md:flex">
-          <Button variant="ghost" className="text-white/70 hover:bg-white/10 hover:text-white" asChild>
-            <Link href="/dashboard">Sign in</Link>
-          </Button>
           <Button className="bg-white text-zinc-900 hover:bg-white/85" asChild>
             <Link href="/dashboard">Launch App</Link>
           </Button>
@@ -97,13 +94,6 @@ export function MarketingNav() {
               </Link>
             ))}
             <div className="mt-2 flex items-center gap-2">
-              <Button
-                variant="outline"
-                className="flex-1 border-white/20 bg-transparent text-white hover:bg-white/10"
-                asChild
-              >
-                <Link href="/dashboard">Sign in</Link>
-              </Button>
               <Button className="flex-1 bg-white text-zinc-900 hover:bg-white/85" asChild>
                 <Link href="/dashboard">Launch App</Link>
               </Button>

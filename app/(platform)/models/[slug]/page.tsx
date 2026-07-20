@@ -6,6 +6,7 @@ import { MODELS, getModel } from "@/lib/data/models";
 import { MODEL_PROVIDER_LABELS } from "@/lib/types";
 import type { PassType } from "@/lib/types";
 import { PASS_LABELS, formatCompact } from "@/lib/format";
+import { LiveBadge } from "@/components/models/live-badge";
 import { ModelCard } from "@/components/models/model-card";
 import { ModelBillingCard } from "@/components/models/model-billing-card";
 import { Badge } from "@/components/ui/badge";
@@ -55,6 +56,7 @@ export default async function ModelDetailPage(props: PageProps<"/models/[slug]">
                 Featured
               </Badge>
             )}
+            <LiveBadge live={Boolean(model.liveModelId)} />
           </div>
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{model.name}</h1>
           <p className="mt-1.5 text-base text-muted-foreground">{model.tagline}</p>

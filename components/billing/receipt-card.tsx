@@ -46,6 +46,23 @@ export function ReceiptCard({
         )}
       </div>
 
+      {txn.responseText && (
+        <div className="mx-4 mb-3 rounded-lg border bg-muted/40 px-3 py-2.5">
+          <p className="pb-1 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+            Model output{txn.liveModelId ? ` · ${txn.liveModelId}` : ""}
+          </p>
+          <p className="max-h-40 overflow-y-auto text-xs leading-relaxed whitespace-pre-wrap">
+            {txn.responseText}
+          </p>
+        </div>
+      )}
+
+      {txn.simulatedFallback && (
+        <p className="mx-4 mb-3 rounded-lg bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
+          Live call unavailable — this receipt shows a simulated result.
+        </p>
+      )}
+
       {txn.breakdown && txn.breakdown.length > 0 && (
         <div className="px-4">
           {covered && (
@@ -100,7 +117,7 @@ export function ReceiptCard({
             Estimated {formatRange(txn.estimate.estMin, txn.estimate.estMax)}
           </span>
         )}
-        <span className="ml-auto">Settled via x402</span>
+        <span className="ml-auto">Demo settlement — no real charge</span>
       </div>
     </div>
   );

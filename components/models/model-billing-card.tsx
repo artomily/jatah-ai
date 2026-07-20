@@ -9,7 +9,7 @@ import {
   formatRange,
 } from "@/lib/format";
 import { useAppStore, useHydrated } from "@/lib/store/app-store";
-import { getActiveModelPass } from "@/lib/store/selectors";
+import { getModelCoverage } from "@/lib/store/selectors";
 import { useNow } from "@/hooks/use-now";
 import type { AiModel, PassType } from "@/lib/types";
 import { CreateApiKeyDialog } from "@/components/api-keys/create-api-key-dialog";
@@ -37,7 +37,7 @@ export function ModelBillingCard({
 
   const now = useNow();
   const activePass =
-    hydrated && now != null ? getActiveModelPass(passes, model.id, now) : undefined;
+    hydrated && now != null ? getModelCoverage(passes, model.id, now) : undefined;
   const passEntries = Object.entries(model.pricing.passes) as Array<
     [PassType, { price: number }]
   >;
@@ -61,7 +61,8 @@ export function ModelBillingCard({
         <div className="flex items-center gap-2 rounded-lg bg-success-soft px-3 py-2 text-sm text-success">
           <Ticket className="size-4 shrink-0" aria-hidden />
           <span>
-            Covered by your {PASS_LABELS[activePass.type]} —{" "}
+            Covered by your {activePass.tierName ? `${activePass.tierName} tier ` : ""}
+            {PASS_LABELS[activePass.type]} —{" "}
             <PassCountdown expiresAt={activePass.expiresAt} /> left
           </span>
         </div>

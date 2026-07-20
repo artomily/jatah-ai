@@ -1,5 +1,18 @@
 import { Check, X } from "lucide-react";
+import { MODELS } from "@/lib/data/models";
+import { formatMoneyExact } from "@/lib/format";
+import type { PassType } from "@/lib/types";
 import { cn } from "@/lib/utils";
+
+/** Cheapest listed price for a pass type across the live catalog — keeps this
+ * persona card in sync with the real pass prices shown everywhere else
+ * (PassTiers, model detail, dashboard pricing list). */
+function cheapestPassPrice(type: PassType): number | undefined {
+  const prices = MODELS.map((m) => m.pricing.passes[type]?.price).filter(
+    (p): p is number => p != null,
+  );
+  return prices.length ? Math.min(...prices) : undefined;
+}
 
 const ROWS = [
   { label: "Transparent per-task cost", trad: false, jatah: true },
@@ -29,7 +42,7 @@ const PERSONAS = [
     name: "Heavy sprint week",
     usage: "Deadline week, constant use",
     subscription: "$20.00",
-    jatah: "$9.00",
+    jatah: formatMoneyExact(cheapestPassPrice("pass_7d")),
     jatahNote: "7 Day Sprint",
     winner: "jatah" as const,
   },

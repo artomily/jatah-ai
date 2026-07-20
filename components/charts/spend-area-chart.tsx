@@ -65,6 +65,7 @@ export function SpendAreaChart({
           fill="url(#spendFill)"
           stroke="var(--chart-1)"
           strokeWidth={2}
+          isAnimationActive={false}
         />
       </AreaChart>
     </ChartContainer>

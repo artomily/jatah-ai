@@ -56,6 +56,54 @@ export function getActiveModelPass(
   );
 }
 
+/** Active tier bundle pass covering this model, if any — ignores token budget. */
+export function getActiveTierPass(
+  passes: OwnedPass[],
+  modelId: string,
+  now: number,
+): OwnedPass | undefined {
+  return passes.find(
+    (p) =>
+      p.tierId != null &&
+      p.modelIds?.includes(modelId) &&
+      p.activatedAt <= now &&
+      p.expiresAt > now,
+  );
+}
+
+/**
+ * Whichever pass currently exempts this model from per-request billing: a
+ * direct model pass (unlimited calls), or an active tier pass that still has
+ * token budget left. Direct passes take priority since they have no cap.
+ * Once a tier's shared budget is spent, calls just fall back to per-request
+ * billing — the pass itself keeps counting down to expiry either way.
+ */
+export function getModelCoverage(
+  passes: OwnedPass[],
+  modelId: string,
+  now: number,
+): OwnedPass | undefined {
+  const direct = getActiveModelPass(passes, modelId, now);
+  if (direct) return direct;
+  const tier = getActiveTierPass(passes, modelId, now);
+  if (tier && (tier.tokenLimit ?? 0) - (tier.tokensUsed ?? 0) > 0) return tier;
+  return undefined;
+}
+
+/** Per-model token usage attributed to one tier pass — powers the tier's usage chart. */
+export function tierTokenUsageByModel(
+  transactions: Transaction[],
+  passId: string,
+): Array<{ modelId: string; tokens: number }> {
+  const map = new Map<string, number>();
+  for (const t of transactions) {
+    if (t.type !== "model_usage" || t.coveredByPassId !== passId || !t.modelId) continue;
+    const tokens = (t.inputTokens ?? 0) + (t.outputTokens ?? 0);
+    map.set(t.modelId, (map.get(t.modelId) ?? 0) + tokens);
+  }
+  return [...map.entries()].map(([modelId, tokens]) => ({ modelId, tokens }));
+}
+
 export function getActivePasses(passes: OwnedPass[], now: number): OwnedPass[] {
   return passes
     .filter((p) => p.expiresAt > now)

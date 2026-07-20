@@ -84,6 +84,9 @@ export interface AiModel {
   capabilities: string[];
   pricing: ModelPricing;
   featured?: boolean;
+  /** OpenRouter free-tier slug that actually serves test calls for this model.
+   * Absent = calls are simulated (no free same-family model available). */
+  liveModelId?: string;
 }
 
 export interface ApiKey {
@@ -109,11 +112,19 @@ export interface Creator {
   joined: string;
 }
 
-/** Exactly one of `agentId` / `modelId` is set. */
+/** Exactly one of `agentId` / `modelId` / `tierId` is set. */
 export interface OwnedPass {
   id: string;
   agentId?: string;
   modelId?: string;
+  /** Tier bundle pass — covers every model in `modelIds` under one shared budget. */
+  tierId?: string;
+  tierName?: string;
+  /** tierId only — frozen at purchase time, same as `price`. */
+  modelIds?: string[];
+  tokenLimit?: number;
+  /** tierId only — running total across every call covered by this pass. */
+  tokensUsed?: number;
   type: PassType;
   price: number;
   activatedAt: number;
@@ -138,6 +149,9 @@ export interface Transaction {
   agentName?: string;
   modelId?: string;
   modelName?: string;
+  /** pass_purchase only — set when the pass purchased was a multi-model tier bundle. */
+  tierId?: string;
+  tierName?: string;
   taskPrompt?: string;
   breakdown?: CostLine[];
   executionMs?: number;
@@ -154,6 +168,14 @@ export interface Transaction {
   /** top_up and pass_purchase — set when the funds came from a Stellar testnet payment. */
   stellarTxHash?: string;
   stellarAmountXlm?: number;
+  /** top_up and pass_purchase — set when paid via QRIS through the Midtrans sandbox. */
+  midtransOrderId?: string;
+  /** model_usage only — the real model output when the call went through OpenRouter. */
+  responseText?: string;
+  /** model_usage only — OpenRouter slug that served the call. */
+  liveModelId?: string;
+  /** Live call failed (rate limit / network) and the receipt fell back to a simulated cost. */
+  simulatedFallback?: boolean;
 }
 
 export type BudgetWindow = "daily" | "weekly" | "monthly";

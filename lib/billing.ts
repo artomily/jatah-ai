@@ -87,6 +87,33 @@ export function buildBreakdown(
  * back-derives token counts from each side's dollar amount and the model's
  * rate card — so the two lines always sum exactly to `total`.
  */
+/**
+ * Builds the same two-line receipt shape as `buildTokenBreakdown`, but from
+ * real token counts (a live OpenRouter call) priced against the model's rate
+ * card. `total` is the exact sum of both lines.
+ */
+export function buildRealTokenBreakdown(
+  rateCard: ModelRateCard,
+  inputTokens: number,
+  outputTokens: number,
+): { breakdown: CostLine[]; total: number } {
+  const inputAmount = round4((inputTokens / 1_000_000) * rateCard.inputPerMillion);
+  const outputAmount = round4((outputTokens / 1_000_000) * rateCard.outputPerMillion);
+  const breakdown: CostLine[] = [
+    {
+      provider: "input",
+      label: `Input tokens (${inputTokens.toLocaleString()})`,
+      amount: inputAmount,
+    },
+    {
+      provider: "output",
+      label: `Output tokens (${outputTokens.toLocaleString()})`,
+      amount: outputAmount,
+    },
+  ];
+  return { breakdown, total: round4(inputAmount + outputAmount) };
+}
+
 export function buildTokenBreakdown(
   rateCard: ModelRateCard,
   total: number,
