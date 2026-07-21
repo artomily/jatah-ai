@@ -14,24 +14,23 @@ export function SubscriptionTiers() {
             Prefer predictable? Pick a pass tier
           </h2>
           <p className="mt-2 text-muted-foreground">
-            These aren&apos;t subscriptions — they&apos;re bundle passes in three sizes.
-            Basic, Standard, or Premium: one price, several models, a shared token
-            allowance for a 24 Hour window or a full Week. No auto-renewal, no surprise
-            charges.
+            These aren&apos;t subscriptions — they&apos;re bundle passes in six sizes.
+            One price, several models, a shared token allowance for a 24 Hour window or
+            a full Week. No auto-renewal, no surprise charges.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
-          {TIERS.map((tier, i) => (
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {TIERS.map((tier) => (
             <div
               key={tier.id}
               className={cn(
                 "flex flex-col gap-5 rounded-xl border bg-card p-6 shadow-card",
-                i === 1 && "sm:-mt-4 sm:border-brand/40",
+                tier.slug === "standard" && "lg:-mt-4 lg:border-brand/40",
               )}
             >
               <div>
-                {i === 1 && (
+                {tier.slug === "standard" && (
                   <p className="mb-2 text-xs font-medium text-brand dark:text-sidebar-accent-foreground">
                     Most teams start here
                   </p>
@@ -81,7 +80,7 @@ export function SubscriptionTiers() {
                 ))}
               </ul>
 
-              <Button variant={i === 1 ? "default" : "outline"} asChild>
+              <Button variant={tier.slug === "standard" ? "default" : "outline"} asChild>
                 <Link href={`/tiers?buy=${tier.slug}`}>Get the {tier.name} pass</Link>
               </Button>
             </div>

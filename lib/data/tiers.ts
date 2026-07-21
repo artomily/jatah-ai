@@ -21,6 +21,17 @@ export interface Tier {
  */
 export const TIERS: Tier[] = [
   {
+    id: "tier_starter",
+    slug: "starter",
+    name: "Starter",
+    blurb: "One fast model, priced for trying things out.",
+    tokenLimit: 4_000_000,
+    modelSlugs: ["claude-haiku-4-5"],
+    passes: {
+      pass_24h: { price: 1 },
+    },
+  },
+  {
     id: "tier_basic",
     slug: "basic",
     name: "Basic",
@@ -30,6 +41,17 @@ export const TIERS: Tier[] = [
     passes: {
       pass_24h: { price: 2 },
       pass_7d: { price: 6 },
+    },
+  },
+  {
+    id: "tier_plus",
+    slug: "plus",
+    name: "Plus",
+    blurb: "Efficient open-weight pair for high-volume text work.",
+    tokenLimit: 12_000_000,
+    modelSlugs: ["mistral-large-3", "llama-4-maverick"],
+    passes: {
+      pass_24h: { price: 3 },
     },
   },
   {
@@ -45,6 +67,18 @@ export const TIERS: Tier[] = [
     },
   },
   {
+    id: "tier_pro",
+    slug: "pro",
+    name: "Pro",
+    blurb: "Extra headroom for teams that outgrow Standard.",
+    tokenLimit: 28_000_000,
+    modelSlugs: ["claude-sonnet-5", "gemini-2-5-pro", "mistral-large-3"],
+    passes: {
+      pass_24h: { price: 6 },
+      pass_7d: { price: 20 },
+    },
+  },
+  {
     id: "tier_premium",
     slug: "premium",
     name: "Premium",
@@ -57,6 +91,12 @@ export const TIERS: Tier[] = [
     },
   },
 ];
+
+/** Tiers listed under the Hourly (24h) pricing section — all six offer this duration. */
+export const HOURLY_TIERS: Tier[] = TIERS.filter((t) => t.passes.pass_24h);
+
+/** Tiers listed under the Weekly (7d) pricing section — a subset of the six. */
+export const WEEKLY_TIERS: Tier[] = TIERS.filter((t) => t.passes.pass_7d);
 
 export function getTier(slug: string): Tier | undefined {
   return TIERS.find((t) => t.slug === slug);

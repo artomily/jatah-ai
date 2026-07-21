@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Check, Ticket } from "lucide-react";
-import { TIERS, tierModels } from "@/lib/data/tiers";
+import { TIERS, HOURLY_TIERS, WEEKLY_TIERS, tierModels } from "@/lib/data/tiers";
 import type { Tier } from "@/lib/data/tiers";
 import { PASS_LABELS, formatCompact, formatMoneyExact } from "@/lib/format";
 import { useAppStore, useHydrated } from "@/lib/store/app-store";
@@ -25,11 +25,17 @@ export function TiersView({ initialBuySlug }: { initialBuySlug?: string }) {
   const [buyTierSlug, setBuyTierSlug] = useState<string | null>(
     initialBuySlug && TIERS.some((t) => t.slug === initialBuySlug) ? initialBuySlug : null,
   );
+  const [buyType, setBuyType] = useState<PassType>("pass_24h");
 
   const buyTier = TIERS.find((t) => t.slug === buyTierSlug) ?? null;
 
+  const openBuy = (tier: Tier, type: PassType) => {
+    setBuyTierSlug(tier.slug);
+    setBuyType(type);
+  };
+
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-10">
       <div>
         <h2 className="text-2xl font-semibold tracking-tight">Tier passes</h2>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -38,30 +44,102 @@ export function TiersView({ initialBuySlug }: { initialBuySlug?: string }) {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-        {TIERS.map((tier, i) => {
+      <TierSection
+        title="Hourly"
+        description="A 24-hour window — for a deadline, a hackathon, a single big push."
+        tiers={HOURLY_TIERS}
+        type="pass_24h"
+        gridClassName="sm:grid-cols-2 lg:grid-cols-3"
+        hydrated={hydrated}
+        now={now}
+        passes={passes}
+        transactions={transactions}
+        onBuy={openBuy}
+      />
+
+      <TierSection
+        title="Weekly"
+        description="A full 7-day sprint — for a launch week or a project deadline."
+        tiers={WEEKLY_TIERS}
+        type="pass_7d"
+        gridClassName="sm:grid-cols-2 lg:grid-cols-4"
+        hydrated={hydrated}
+        now={now}
+        passes={passes}
+        transactions={transactions}
+        onBuy={openBuy}
+      />
+
+      <p className="text-xs text-muted-foreground">
+        Go over a tier&apos;s token allowance and calls just fall back to that model&apos;s
+        normal per-request billing — never blocked, never a surprise.
+      </p>
+
+      {buyTier && (
+        <TierPurchaseDialog
+          tier={buyTier}
+          defaultType={buyType}
+          open={buyTier != null}
+          onOpenChange={(open) => {
+            if (!open) setBuyTierSlug(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function TierSection({
+  title,
+  description,
+  tiers,
+  type,
+  gridClassName,
+  hydrated,
+  now,
+  passes,
+  transactions,
+  onBuy,
+}: {
+  title: string;
+  description: string;
+  tiers: Tier[];
+  type: PassType;
+  gridClassName: string;
+  hydrated: boolean;
+  now: number | null;
+  passes: OwnedPass[];
+  transactions: Transaction[];
+  onBuy: (tier: Tier, type: PassType) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-5">
+      <div>
+        <h3 className="text-lg font-semibold tracking-tight">{title}</h3>
+        <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>
+      </div>
+
+      <div className={`grid grid-cols-1 gap-5 ${gridClassName}`}>
+        {tiers.map((tier) => {
           const models = tierModels(tier);
           const activePass =
             hydrated && now != null
               ? passes.find(
-                  (p) => p.tierId === tier.id && p.activatedAt <= now && p.expiresAt > now,
+                  (p) =>
+                    p.tierId === tier.id &&
+                    p.type === type &&
+                    p.activatedAt <= now &&
+                    p.expiresAt > now,
                 )
               : undefined;
+          const price = tier.passes[type]?.price;
 
           return (
             <div
-              key={tier.id}
-              className={cn(
-                "flex flex-col gap-4 rounded-xl border bg-card p-6 shadow-card",
-                i === 1 && !activePass && "lg:-mt-4 lg:border-brand/40",
-              )}
+              key={`${tier.id}-${type}`}
+              className="flex flex-col gap-4 rounded-xl border bg-card p-6 shadow-card"
             >
               <div>
-                {i === 1 && !activePass && (
-                  <p className="mb-2 text-xs font-medium text-brand dark:text-sidebar-accent-foreground">
-                    Most teams start here
-                  </p>
-                )}
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-lg font-semibold tracking-tight">{tier.name}</p>
                   {activePass && (
@@ -72,6 +150,15 @@ export function TiersView({ initialBuySlug }: { initialBuySlug?: string }) {
                   )}
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">{tier.blurb}</p>
+              </div>
+
+              <div className="border-t pt-4">
+                <p className="text-3xl font-semibold tracking-tight tabular-nums">
+                  {price != null ? formatMoneyExact(price) : "—"}
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {formatCompact(tier.tokenLimit)} tokens shared across every model below.
+                </p>
               </div>
 
               <ul className="flex flex-col gap-1.5 border-t pt-4">
@@ -86,72 +173,23 @@ export function TiersView({ initialBuySlug }: { initialBuySlug?: string }) {
               </ul>
 
               {!hydrated || now == null ? (
-                <Skeleton className="h-28 w-full" />
+                <Skeleton className="h-10 w-full" />
               ) : activePass ? (
                 <ActiveTierPanel
                   models={models}
                   pass={activePass}
                   transactions={transactions}
-                  onExtend={() => setBuyTierSlug(tier.slug)}
+                  onExtend={() => onBuy(tier, type)}
                 />
               ) : (
-                <BuyTierPanel tier={tier} onBuy={() => setBuyTierSlug(tier.slug)} />
+                <Button className="mt-auto" onClick={() => onBuy(tier, type)}>
+                  Get the {tier.name} pass
+                </Button>
               )}
             </div>
           );
         })}
       </div>
-
-      <p className="text-xs text-muted-foreground">
-        Go over a tier&apos;s token allowance and calls just fall back to that model&apos;s
-        normal per-request billing — never blocked, never a surprise.
-      </p>
-
-      {buyTier && (
-        <TierPurchaseDialog
-          tier={buyTier}
-          open={buyTier != null}
-          onOpenChange={(open) => {
-            if (!open) setBuyTierSlug(null);
-          }}
-        />
-      )}
-    </div>
-  );
-}
-
-function BuyTierPanel({ tier, onBuy }: { tier: Tier; onBuy: () => void }) {
-  const passEntries = Object.entries(tier.passes) as Array<[PassType, { price: number }]>;
-  return (
-    <div className="mt-auto flex flex-col gap-4 border-t pt-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-xs text-muted-foreground">24 Hour</p>
-          {tier.passes.pass_24h ? (
-            <p className="text-xl font-semibold tracking-tight tabular-nums">
-              {formatMoneyExact(tier.passes.pass_24h.price)}
-            </p>
-          ) : (
-            <p className="text-sm text-muted-foreground/70">Not offered</p>
-          )}
-        </div>
-        <div className="text-right">
-          <p className="text-xs text-muted-foreground">1 Week</p>
-          {tier.passes.pass_7d ? (
-            <p className="text-xl font-semibold tracking-tight tabular-nums">
-              {formatMoneyExact(tier.passes.pass_7d.price)}
-            </p>
-          ) : (
-            <p className="text-sm text-muted-foreground/70">Not offered</p>
-          )}
-        </div>
-      </div>
-      <p className="text-xs text-muted-foreground">
-        {formatCompact(tier.tokenLimit)} tokens shared across every model above.
-      </p>
-      <Button disabled={passEntries.length === 0} onClick={onBuy}>
-        Get the {tier.name} pass
-      </Button>
     </div>
   );
 }
